@@ -16,6 +16,9 @@ graft/
 .vscode/
 .idea/
 
+# Local npm cache used for sandboxed runs
+.npm-cache/
+
 # Local publishing notes — kept out of the public repo
 PUBLISHING.md
 MARKETPLACE.md

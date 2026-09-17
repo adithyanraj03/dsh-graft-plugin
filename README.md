@@ -55,7 +55,19 @@ Sits in the composer next to the model name:
 
 Hovering (or clicking) opens a card with the resolved root, node and edge counts, freshness, the running saved-token tally, and the `graft viz` button.
 
+![The chip in the composer, with its hover card](assets/chip.png)
+
 The root is resolved from **the session's own workspace**, not from wherever dsh was launched. That is the whole reason this exists rather than the `graft mcp` server: `graft mcp` resolves its repo once, from its own working directory at startup, and nothing can re-point it afterwards. Launched from a home directory it answers *"no graph found"* for every workspace you open.
+
+### The visualiser
+
+The `graft viz` button opens the graph as a tab in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar). The context view lays out the whole graph:
+
+![The graph in the sidebar — context view](assets/viz-context.png)
+
+The code view drills into a single file — what it contains, what it depends on, what depends on it:
+
+![The graph in the sidebar — code view](assets/viz-code.png)
 
 ### The tools
 

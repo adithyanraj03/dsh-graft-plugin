@@ -26,7 +26,8 @@
     "test-autosync.mjs",
     "test-command.mjs",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "screenshots.json"
   ],
   "scripts": {
     "test": "node test-harness.mjs && node test-autosync.mjs && node test-command.mjs",

@@ -41,6 +41,8 @@ A chip beside the model name, resolved from **the session's workspace** rather t
 ▲ graft · my-repo      stale
 ```
 
+![The chip in the composer, with its hover card](../assets/chip.png)
+
 This is the reason the plugin exists rather than the `graft mcp` server. `graft mcp` resolves its repo once, from its own working directory at startup, and nothing can re-point it afterwards. Launched from a home directory it answers *"no graph found"* for every workspace you open — while the CLI, run in the same repo, answers fine.
 
 ### Gives the model five tools
@@ -64,6 +66,12 @@ None of them take a boolean parameter — they take string enums, which reads be
 ### Draws the graph
 
 A `graft viz` button opens the visualiser as a tab inside [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar), if you have it mounted.
+
+![The graph in the sidebar — context view](../assets/viz-context.png)
+
+The code view drills into a single file — what it contains, what it depends on, what depends on it:
+
+![The graph in the sidebar — code view](../assets/viz-code.png)
 
 ---
 
