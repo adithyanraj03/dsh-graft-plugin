@@ -14,7 +14,7 @@
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { computeStatus, countWiring, findGraftRoot, freshnessOf } from './index.js'
+import { computeStatus, countWiring, findGraftRoot, freshnessOf } from '../src/index.js'
 
 let failures = 0
 const check = (label, ok, extra = '') => {
@@ -141,7 +141,7 @@ check('reports not-ok rather than throwing', bare.ok === false, JSON.stringify(b
  * ========================================================================== */
 
 console.log('\n--- the workspace comes from the SESSION, not the launch dir ---')
-const { cwdForSession } = await import('./index.js')
+const { cwdForSession } = await import('../src/index.js')
 // The exact failure reported: dsh launched from a directory with no graft index
 // above it, while the session's workspace had one.
 const HOME = BARE
@@ -156,7 +156,7 @@ check('a throwing service falls back', cwdForSession({ get: () => { throw new Er
 check('no session id falls back', cwdForSession(fakeSessions, undefined, HOME) === HOME)
 
 console.log('\n--- graft viz: port choice and startup ---')
-const { startViz, pickPort } = await import('./index.js')
+const { startViz, pickPort } = await import('../src/index.js')
 
 const never = { exitCode: null }
 const wait = async () => {}
@@ -209,7 +209,7 @@ console.log('\n--- window.open must keep its handle ---')
 // is the flag's whole purpose — so a caller that needs the handle and passes it
 // anyway opens a tab it can never write to or navigate. That shipped once and
 // showed up as a permanent blank page, with no error anywhere.
-const clientSource = await readFile(new URL('./client.js', import.meta.url), 'utf8')
+const clientSource = await readFile(new URL('../src/client.js', import.meta.url), 'utf8')
 const opens = clientSource.match(/window\.open\([^)]*\)/g) ?? []
 check('the tab is opened exactly once', opens.length === 1, opens.join(' | '))
 check('and never with noopener', opens.every((call) => !call.includes('noopener')), opens.join(' | '))

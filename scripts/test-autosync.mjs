@@ -1,6 +1,6 @@
-import { savedTokensIn } from './graft-tools.js'
-import { createAutoSync } from './auto-sync.js'
-import { totalSaved } from './index.js'
+import { savedTokensIn } from '../src/graft-tools.js'
+import { createAutoSync } from '../src/auto-sync.js'
+import { totalSaved } from '../src/index.js'
 
 let failures = 0
 const check = (l, ok, extra = '') => { console.log((ok ? 'PASS  ' : 'FAIL  ') + l + (extra ? '  -> ' + extra : '')); if (!ok) failures += 1 }

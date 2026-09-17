@@ -1,5 +1,5 @@
-import { graftTools, repoFor, runGraft } from './graft-tools.js'
-import { findGraftRoot } from './index.js'
+import { graftTools, repoFor, runGraft } from '../src/graft-tools.js'
+import { findGraftRoot } from '../src/index.js'
 import { access } from 'node:fs/promises'
 
 let failures = 0

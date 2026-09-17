@@ -19,6 +19,10 @@ graft/
 # Local npm cache used for sandboxed runs
 .npm-cache/
 
+# Local test scratch + node compile cache (never commit either)
+.testtmp/
+node-compile-cache/
+
 # Local publishing notes — kept out of the public repo
 PUBLISHING.md
 MARKETPLACE.md

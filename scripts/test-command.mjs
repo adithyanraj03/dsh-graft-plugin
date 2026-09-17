@@ -9,8 +9,8 @@
  *
  * Run:  npm test
  */
-import { createGraftCommand, parseArgs, workspaceOf } from './command.js'
-import { findGraftRoot } from './index.js'
+import { createGraftCommand, parseArgs, workspaceOf } from '../src/command.js'
+import { findGraftRoot } from '../src/index.js'
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
@@ -62,7 +62,7 @@ await writeFile(
   ['from shapes import Rect', '', 'def run():', '    return Rect(3, 4).area()', ''].join('\n'),
 )
 
-const { countWiring } = await import('./index.js')
+const { countWiring } = await import('../src/index.js')
 const cmd = createGraftCommand({ fallbackCwd: 'C:/nowhere', findRoot: (s) => findGraftRoot(s, exists), readJson, countWiring })
 const invoke = (cwd, rawInput = '') => cmd.handler({ agent: { session: { header: { cwd } } }, rawInput, signal: undefined })
 
