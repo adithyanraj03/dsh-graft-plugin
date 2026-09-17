@@ -1,0 +1,78 @@
+{
+  "name": "dsh-graft",
+  "version": "0.1.0",
+  "description": "Shows which graft index a dsh session is serving and whether it still matches the code, and gives the model graft_ask, graft_grep, graft_callers, graft_skeleton and graft_map as native tools.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./graft-tools": "./graft-tools.js",
+    "./auto-sync": "./auto-sync.js",
+    "./command": "./command.js"
+  },
+  "files": [
+    "index.js",
+    "graft-tools.js",
+    "auto-sync.js",
+    "command.js",
+    "client.js",
+    "cordis.patch.yml",
+    "scripts/postinstall.mjs",
+    "test-harness.mjs",
+    "test-tools.mjs",
+    "test-autosync.mjs",
+    "test-command.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node test-harness.mjs && node test-autosync.mjs && node test-command.mjs",
+    "test:live": "node test-tools.mjs",
+    "postinstall": "node scripts/postinstall.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-api-remotes"
+      ]
+    }
+  },
+  "dependencies": {
+    "dsh-better-sidebar": "^0.18.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0-rc.6"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-tools": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.1.2-rc.1"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "dsh",
+    "graft",
+    "code-graph",
+    "context",
+    "tools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adithyanraj03/dsh-graft.git"
+  },
+  "homepage": "https://adithyanraj03.github.io/dsh-graft/",
+  "bugs": {
+    "url": "https://github.com/adithyanraj03/dsh-graft/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,20 @@
+# GitHub Pages configuration.
+#
+# This is all GitHub's built-in Jekyll needs. Settings -> Pages -> Deploy from a
+# branch -> main -> /docs, and the site builds from index.md on every push.
+#
+# `theme:` must be one of the themes GitHub Pages supports natively:
+# https://pages.github.com/themes/  — anything else needs a full Actions build.
+title: dsh-graft
+description: >-
+  A DeepSeek Harness plugin that puts graft's code graph in front of both you
+  and the model.
+theme: jekyll-theme-cayman
+
+# Shown on the header button of the cayman theme.
+show_downloads: false
+
+# Nothing in this folder but the site itself.
+exclude:
+  - Gemfile
+  - Gemfile.lock

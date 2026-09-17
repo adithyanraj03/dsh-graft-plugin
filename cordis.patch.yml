@@ -1,0 +1,24 @@
+# dsh-graft bundle patch: mount the host half, which reads the graft index files
+# and answers the browser's questions about them. The browser half — the chip,
+# the viz button and the sidebar tab — is mounted by the `dsh.client` entry in
+# package.json, not from here.
+#
+# `name` MUST be the published package name, because the loader imports this
+# exact specifier. `id` is this row's handle and is deliberately NOT renamed
+# alongside the package: it is the key the storage file (graft-status.json), the
+# prompt section (graft-status:usage) and every effect label already use, and
+# churning it would orphan a user's saved token tally for no gain.
+#
+# Config (all optional, all set on this row):
+#   cwd                    pin the lookup to one repo. Left unset it resolves
+#                          from the session's own workspace, then dsh's working
+#                          directory — the same rule `graft mcp` applies, so the
+#                          chip and the tools cannot disagree about which graph
+#                          is in play.
+#   tools: false           drop the graft_* tools, keep the chip
+#   command: false         drop the /graft command
+#   promptSection: false   stop telling the model to prefer graft
+#   autoBuild: false       stop rebuilding the index after edits
+- insert:
+    - id: graft-status
+      name: 'dsh-graft'

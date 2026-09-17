@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# npm build output
+*.tgz
+
+# Logs and local scratch
+*.log
+.DS_Store
+Thumbs.db
+
+# A graft index built while testing in this repo
+graft/
+
+# Editor
+.vscode/
+.idea/
+
+# Local publishing notes — kept out of the public repo
+PUBLISHING.md
+MARKETPLACE.md
