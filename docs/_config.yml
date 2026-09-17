@@ -5,7 +5,7 @@
 #
 # `theme:` must be one of the themes GitHub Pages supports natively:
 # https://pages.github.com/themes/  — anything else needs a full Actions build.
-title: dsh-graft
+title: dsh-graft-plugin
 description: >-
   A DeepSeek Harness plugin that puts graft's code graph in front of both you
   and the model.

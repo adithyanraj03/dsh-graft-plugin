@@ -1,4 +1,4 @@
-# dsh-graft
+# dsh-graft-plugin
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that puts [graft](https://github.com/trailhq/Graft) — a prebuilt graph of every symbol, its `file:line` span, and who calls what — in front of both you and the model.
 
@@ -12,7 +12,7 @@ It does four things:
 ## Install
 
 ```sh
-dsh plugin --profile web add dsh-graft
+dsh plugin --profile web add dsh-graft-plugin
 dsh --profile web
 ```
 
@@ -85,7 +85,7 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
 
 ```yaml
 - id: graft-status
-  name: 'dsh-graft'
+  name: 'dsh-graft-plugin'
   config:
     cwd: 'C:/path/to/repo'   # pin to one repo instead of resolving per session
     tools: false             # drop the graft_* tools, keep the chip

@@ -68,7 +68,7 @@ async function main() {
   if (process.env.DSH_GRAFT_SKIP_POSTINSTALL === '1') return
 
   say()
-  say(`${BOLD}dsh-graft${OFF}`)
+  say(`${BOLD}dsh-graft-plugin${OFF}`)
 
   if (graftOnPath()) {
     say(`  ${DIM}graft is already on PATH - nothing to install.${OFF}`)

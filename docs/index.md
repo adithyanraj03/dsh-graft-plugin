@@ -1,20 +1,20 @@
 ---
 layout: default
-title: dsh-graft
+title: dsh-graft-plugin
 ---
 
-# dsh-graft
+# dsh-graft-plugin
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that puts [graft](https://github.com/trailhq/Graft) — a prebuilt graph of every symbol, its `file:line` span, and who calls what — in front of both you and the model.
 
-[View on GitHub](https://github.com/adithyanraj03/dsh-graft){: .btn }
+[View on GitHub](https://github.com/adithyanraj03/dsh-graft-plugin){: .btn }
 
 ---
 
 ## Install
 
 ```sh
-dsh plugin --profile web add dsh-graft
+dsh plugin --profile web add dsh-graft-plugin
 dsh --profile web
 ```
 
@@ -41,7 +41,7 @@ A chip beside the model name, resolved from **the session's workspace** rather t
 ▲ graft · my-repo      stale
 ```
 
-This is the reason the plugin exists rather than the `graft mcp` server. `graft mcp` resolves its repo once, from its own working directory at startup, and nothing can re-point it. Launched from a home directory it answers *"no graph found"* for every workspace you open — while the CLI, run in the same repo, answers fine.
+This is the reason the plugin exists rather than the `graft mcp` server. `graft mcp` resolves its repo once, from its own working directory at startup, and nothing can re-point it afterwards. Launched from a home directory it answers *"no graph found"* for every workspace you open — while the CLI, run in the same repo, answers fine.
 
 ### Gives the model five tools
 
@@ -73,7 +73,7 @@ On the plugin's row in your profile's `cordis.patch.yml` — all optional:
 
 ```yaml
 - id: graft-status
-  name: 'dsh-graft'
+  name: 'dsh-graft-plugin'
   config:
     cwd: 'C:/path/to/repo'   # pin to one repo instead of resolving per session
     tools: false             # drop the graft_* tools, keep the chip
@@ -92,4 +92,4 @@ On the plugin's row in your profile's `cordis.patch.yml` — all optional:
 
 ---
 
-Licensed MIT. Issues and pull requests at [github.com/adithyanraj03/dsh-graft](https://github.com/adithyanraj03/dsh-graft).
+Licensed MIT. Issues and pull requests at [github.com/adithyanraj03/dsh-graft-plugin](https://github.com/adithyanraj03/dsh-graft-plugin).

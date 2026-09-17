@@ -1,4 +1,4 @@
-# dsh-graft bundle patch: mount the host half, which reads the graft index files
+# dsh-graft-plugin bundle patch: mount the host half, which reads the graft index files
 # and answers the browser's questions about them. The browser half — the chip,
 # the viz button and the sidebar tab — is mounted by the `dsh.client` entry in
 # package.json, not from here.
@@ -21,4 +21,4 @@
 #   autoBuild: false       stop rebuilding the index after edits
 - insert:
     - id: graft-status
-      name: 'dsh-graft'
+      name: 'dsh-graft-plugin'
