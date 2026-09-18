@@ -26,3 +26,6 @@ node-compile-cache/
 # Local publishing notes — kept out of the public repo
 PUBLISHING.md
 MARKETPLACE.md
+
+# Scratch release notes (per-release, never committed)
+.relnotes.md
