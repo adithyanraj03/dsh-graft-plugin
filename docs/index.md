@@ -9,7 +9,7 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin tha
 
 [View on GitHub](https://github.com/adithyanraj03/dsh-graft-plugin){: .btn }
 
-![language](https://img.shields.io/badge/language-javascript-f7dc6f) ![style](https://img.shields.io/badge/style-vanilla-gray) ![license](https://img.shields.io/badge/license-MIT-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5%2022-brightgreen) ![dsh](https://img.shields.io/badge/dsh-web%20profile-orange) ![runtime](https://img.shields.io/badge/runtime-offline_%C2%B7_100%25_local-brightgreen) ![tests](https://img.shields.io/badge/tests-91_passing-brightgreen)
+![language](https://img.shields.io/badge/language-javascript-f7dc6f) ![style](https://img.shields.io/badge/style-vanilla-gray) ![license](https://img.shields.io/badge/license-MIT-blue) ![node](https://img.shields.io/badge/node-%E2%89%A5%2022-brightgreen) ![dsh](https://img.shields.io/badge/dsh-web%20profile-orange) ![runtime](https://img.shields.io/badge/runtime-offline_%C2%B7_100%25_local-brightgreen) ![tests](https://img.shields.io/badge/tests-passing-brightgreen)
 
 ---
 
@@ -20,7 +20,16 @@ dsh plugin --profile web add dsh-graft-plugin
 dsh --profile web
 ```
 
-The install puts the graft CLI on your PATH as well. Then index a repo once:
+Every tool here shells out to the `graft` CLI, so it needs `@nanonets/graft` on PATH — `npm install -g @nanonets/graft`. A `postinstall` does this for you when your package manager runs lifecycle scripts; pnpm 10+ blocks them by default, so treat that command as the required step there.
+
+If `add` ends with `ERR_PNPM_IGNORED_BUILDS`, dsh skips writing the plugin's bundle row — the dependency lands, the plugin stays invisible, and dsh starts up cleanly. Approve and re-run:
+
+```sh
+cd ~/.dsh/profiles/web && pnpm approve-builds
+dsh plugin --profile web add dsh-graft-plugin
+```
+
+Then index a repo once:
 
 ```sh
 cd <your repo>
@@ -69,6 +78,8 @@ None of them take a boolean parameter — they take string enums, which reads be
 
 A `graft viz` button opens the visualiser as a tab inside [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar), if you have it mounted.
 
+> **Compatibility.** `dsh-better-sidebar` 0.18.x requires `@deepseek-ai/dsh-client-ui-primitives`, which dsh removed in `0.1.5-rc.2` — on that version or later the tab will not mount. Everything else in the plugin is unaffected.
+
 ![The graph in the sidebar — context view](assets/viz-context.png)
 
 The code view drills into a single file — what it contains, what it depends on, what depends on it:
@@ -96,9 +107,15 @@ On the plugin's row in your profile's `cordis.patch.yml` — all optional:
 
 ## Requirements
 
-- dsh `0.1.2-rc.1` or newer, web profile
+| dsh | status |
+|---|---|
+| `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set |
+| `0.1.5-rc.2` | tested — chip, tools, `/graft` and auto-rebuild work; the `graft viz` tab does not mount |
+
 - Node 22+
-- the `graft` CLI on PATH — installed for you, or `npm install -g @nanonets/graft`
+- the `graft` CLI on PATH (`npm install -g @nanonets/graft`)
+
+The client bundle requires only `react`, which is why it survives the dsh `0.1.5-rc.2` client-package removals that broke several neighbouring plugins.
 
 ---
 
