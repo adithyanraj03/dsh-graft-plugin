@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: "graft-status",
+  id: "dsh-graft-plugin",
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;
