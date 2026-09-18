@@ -215,6 +215,20 @@ check('the tab is opened exactly once', opens.length === 1, opens.join(' | '))
 check('and never with noopener', opens.every((call) => !call.includes('noopener')), opens.join(' | '))
 check('and opened blank, to be navigated later', (opens[0] ?? '').includes('"", "_blank"'), opens[0])
 
+console.log('\n--- the client module key ---')
+// The client loader keys bundles by the package name — entry.options.name in
+// cordis.patch.yml — and arrive() asserts factories.has(that name). The row id
+// `graft-status` is a DIFFERENT namespace (storage keys, prompt section,
+// effect labels) and must stay put there. When the two were conflated, the
+// factory landed under the row id and the assert fired on every boot with the
+// chip and tab missing. That shipped as 0.1.0; this guard is the reason it
+// will not ship again.
+check(
+  'registers under the package name, not the row id',
+  /__ModuleLoader__\.load\(\{\s*\r?\n\s*id:\s*"dsh-graft-plugin"/.test(clientSource),
+)
+check('and never under the row id', !/__ModuleLoader__\.load\(\{\s*\r?\n\s*id:\s*"graft-status"/.test(clientSource))
+
 console.log('\n--- the sidebar tab is a consumer, not a patch ---')
 // dsh-better-sidebar is never edited by this plugin: the tab is contributed
 // through its documented `ctx.betterSidebar` service, which its README states
