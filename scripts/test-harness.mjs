@@ -246,7 +246,15 @@ check(
   clientSource.includes('ctx.inject(["betterSidebar"]') && /const inject = \[[^\]]*\]/.exec(clientSource)?.[0].includes('betterSidebar') === false,
   /const inject = \[[^\]]*\]/.exec(clientSource)?.[0],
 )
-check('the browser tab survives only as the fallback', clientSource.includes('no dsh-better-sidebar'))
+// The open order: better-sidebar if a profile still has it, then dsh's own
+// right sidebar (0.1.5+), and a browser tab only when neither is there.
+check('dsh right sidebar comes after better-sidebar', clientSource.indexOf('ctx.get("betterSidebar")') < clientSource.indexOf('ctx.get("sidebarRight")'))
+check('it opens by kind, which also reveals the column', clientSource.includes('right.openTab(VIZ_KIND)'))
+check('a kind nothing registered falls through, not dead', clientSource.includes('openTab throws for a kind nothing registered'))
+check('the type and its body register under the same id', clientSource.includes('sidebarRightTabs.register({') && clientSource.includes('id: TAB_TYPE,') && clientSource.includes('name: "sidebar.right.pane.tab", key: TAB_TYPE'))
+check('that dependency is soft too', clientSource.includes('ctx.inject(["sidebarRightTabs", "slots"]') && !/const inject = [[]/.test('') && clientSource.indexOf('const inject = ["slots", "remote"]') !== -1)
+check('the body reads the session from either host', clientSource.includes('props?.sessionId ?? props?.scope?.sessionId'))
+check('the browser tab survives only as the last resort', clientSource.includes('neither sidebar'))
 
 await rm(fixture, { recursive: true, force: true })
 

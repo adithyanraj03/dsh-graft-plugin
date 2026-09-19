@@ -324,8 +324,18 @@ window.__ModuleLoader__.load({
       ].join("");
     }
 
-    /** The tab type contributed to dsh-better-sidebar. */
+    /** This viewer's identity: better-sidebar's tab type, and dsh's tab id. */
     const TAB_TYPE = "graft-status:viz";
+
+    /**
+     * The kind dsh's own right sidebar opens this page type by.
+     *
+     * dsh 0.1.5 splits a tab type in two: a static registration naming the kind
+     * (`ctx.sidebarRightTabs`), and the body under the registration's id in the
+     * keyed `sidebar.right.pane.tab` seat. `ctx.sidebarRight.openTab(kind)`
+     * then opens it AND expands a collapsed column in the same step.
+     */
+    const VIZ_KIND = "graft-viz";
 
     /**
      * The sidebar tab: `graft viz` in an iframe.
@@ -370,10 +380,14 @@ window.__ModuleLoader__.load({
         const [status, setStatus] = React.useState(null);
         const [reload, setReload] = React.useState(0);
         const [busy, setBusy] = React.useState(false);
+        // Visible by default: better-sidebar passes `visible: false` for a tab
+        // that exists but is not focused (and asks live views to pause then);
+        // dsh's sidebar mounts only what it draws and passes nothing.
         const visible = props?.visible !== false;
-        // The sidebar's own scope. Its `sessionId` is what tells the host WHICH
-        // workspace to resolve — the same session whose cwd the sidebar shows.
-        const sessionId = props?.scope?.sessionId;
+        // Which workspace to resolve. Both hosts supply the session, in their
+        // own shape: dsh passes `sessionId` straight to the body, while
+        // better-sidebar wraps it in the tab's `scope`.
+        const sessionId = props?.sessionId ?? props?.scope?.sessionId;
 
         React.useEffect(() => {
           if (!visible || viz !== null) return;
@@ -630,7 +644,25 @@ window.__ModuleLoader__.load({
             return;
           }
 
-          // Fallback for a profile with no dsh-better-sidebar: a browser tab.
+          // Next: dsh's own right sidebar (0.1.5+). `openTab` names the KIND,
+          // reveals the column, and reuses the tab that is already open, so a
+          // second click focuses the graph rather than stacking another.
+          // The body starts the server itself on mount, so nothing is awaited
+          // here and no popup-blocker timing applies.
+          const right = ctx.get("sidebarRight");
+          if (right !== undefined && right !== null && typeof right.openTab === "function") {
+            try {
+              right.openTab(VIZ_KIND);
+              return;
+            } catch (error) {
+              // openTab throws for a kind nothing registered — which is the
+              // case when the tab registry was absent at load. Fall through to
+              // the browser tab rather than leaving the click dead.
+              console.warn("[graft-status] right sidebar refused the viz tab:", error);
+            }
+          }
+
+          // Last resort, for a profile with neither sidebar: a browser tab.
 
           // Opened SYNCHRONOUSLY, before any await. A tab opened from a
           // resolved promise is a popup as far as the browser is concerned and
@@ -812,6 +844,41 @@ window.__ModuleLoader__.load({
       // plugin — chip included — from activating in a profile that does not
       // have the sidebar installed. This way the tab appears when the service
       // does, and the button falls back to a browser tab when it never comes.
+      // dsh's own right sidebar (0.1.5+). Two registrations: the static type,
+      // and the body in the keyed seat under the SAME id. `ctx.inject` rather
+      // than the module-level list for the same reason as below — a profile
+      // without this sidebar must still get the chip and the button.
+      ctx.inject(["sidebarRightTabs", "slots"], (scope) => {
+        scope.effect(
+          () =>
+            scope.sidebarRightTabs.register({
+              id: TAB_TYPE,
+              kind: VIZ_KIND,
+              // A page type, opened by kind: it recognises no resource address,
+              // so it declares no patterns. "extension" is the band for a type
+              // from outside the product, and the default.
+              priority: "extension",
+              title: () => "Graft",
+              guide: [
+                {
+                  order: 60,
+                  title: () => "Graft",
+                  description: () => "The graft graph for this workspace",
+                  icon: GraphIcon,
+                },
+              ],
+            }),
+          "graft-status: right sidebar tab type",
+        );
+        scope.effect(
+          () =>
+            scope.slots.inject("sidebar.right.pane.tab", () =>
+              scope.slots.register({ name: "sidebar.right.pane.tab", key: TAB_TYPE }, makeVizTab(ctx)),
+            ),
+          "graft-status: right sidebar tab body",
+        );
+      });
+
       ctx.inject(["betterSidebar"], (scope) => {
         scope.effect(
           () =>

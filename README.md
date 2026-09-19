@@ -9,7 +9,7 @@ It does four things:
 - **A chip in the composer** naming the graft index the current session is actually serving, whether it still matches the code, and how many tokens graft has saved in that repo.
 - **Five tools for the model** — `graft_ask`, `graft_grep`, `graft_callers`, `graft_skeleton`, `graft_map` — resolved per session, so one dsh can serve several workspaces at once.
 - **`/graft`** to build or rebuild the index, and **auto-rebuild** after the model edits files.
-- **A `graft viz` button** that opens the graph as a tab in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar).
+- **A `graft viz` button** that opens the graph in dsh's built-in right sidebar (0.1.5+), in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) if you still run it, and in a browser tab as the last resort.
 
 ## Install
 
@@ -50,15 +50,17 @@ graft build
 
 ### The sidebar tab
 
-The `graft viz` button needs `dsh-better-sidebar` **mounted**. It ships as a dependency of this plugin (0.18.x), so it is already downloaded — but dsh only mounts what the profile lists:
+On dsh `0.1.5` and later the button opens the graph in **dsh's own right sidebar** — a tab titled Graft, also listed on the sidebar's guide page as "The graft graph for this workspace" — and a second click focuses the tab that is already open. No install needed for that path: the registration is soft, so an older dsh without the right sidebar falls through to `dsh-better-sidebar` when it is mounted, and to a browser tab when neither is there.
+
+If your profile still runs `dsh-better-sidebar`, that path is tried **first** and behaves exactly as before. It ships as a dependency of this plugin (0.18.x), so it is already downloaded — but dsh only mounts what the profile lists:
 
 ```sh
 dsh plugin --profile web add dsh-better-sidebar
 ```
 
-> **Compatibility.** `dsh-better-sidebar` 0.18.x requires `@deepseek-ai/dsh-client-ui-primitives`, which dsh removed in `0.1.5-rc.2`. On that version or later the tab will not mount and the button reports the sidebar as unavailable. Everything else in this plugin — chip, tools, `/graft`, auto-rebuild — is unaffected.
+> **Compatibility.** `dsh-better-sidebar` 0.18.x requires `@deepseek-ai/dsh-client-ui-primitives`, which dsh removed in `0.1.5-rc.2`. On that version or later it will not mount — which is exactly the profiles where the built-in right sidebar takes over instead. Everything else in this plugin — chip, tools, `/graft`, auto-rebuild — is unaffected.
 
-Skip it if you do not want the tab. The chip, the tools, `/graft` and the auto-rebuild all work without it; the button just reports that the sidebar is unavailable.
+The chip, the tools, `/graft` and the auto-rebuild all work without any sidebar; the button simply falls back to a browser tab when neither one is present.
 
 > This plugin does **not** insert a `dsh-better-sidebar` row itself, on purpose. That package's own bundle row carries a guard that disables it when another enabled row already mounts the same package. A second row with a different id makes that guard circular, and the losing outcome is *your existing sidebar silently disabling itself*. One explicit command is worth more than that risk.
 
@@ -82,7 +84,7 @@ The root is resolved from **the session's own workspace**, not from wherever dsh
 
 ### The visualiser
 
-The `graft viz` button opens the graph as a tab in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar). The context view lays out the whole graph:
+The `graft viz` button opens the graph as a tab — in dsh's built-in right sidebar on `0.1.5`+, in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) if that is what you run. The context view lays out the whole graph:
 
 ![The graph in the sidebar — context view](assets/viz-context.png)
 
@@ -131,8 +133,8 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
 
 | dsh | status |
 |---|---|
-| `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set |
-| `0.1.5-rc.2` | tested — chip, tools, `/graft` and auto-rebuild all work; the `graft viz` tab does not mount (see the sidebar note above) |
+| `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set — the `graft viz` tab via `dsh-better-sidebar` |
+| `0.1.5-rc.2` / `0.1.5` | tested — chip, tools, `/graft` and auto-rebuild all work; on `0.1.5` the `graft viz` button opens the graph in the built-in right sidebar |
 
 - Node 22+
 - the `graft` CLI on PATH (`npm install -g @nanonets/graft`)

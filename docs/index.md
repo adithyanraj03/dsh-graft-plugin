@@ -76,7 +76,7 @@ None of them take a boolean parameter — they take string enums, which reads be
 
 ### Draws the graph
 
-A `graft viz` button opens the visualiser as a tab inside [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar), if you have it mounted.
+A `graft viz` button opens the visualiser as a tab — in dsh's built-in right sidebar on `0.1.5`+ (where it is also listed on the sidebar's guide page), in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) if that is mounted, and in a browser tab as the last resort.
 
 > **Compatibility.** `dsh-better-sidebar` 0.18.x requires `@deepseek-ai/dsh-client-ui-primitives`, which dsh removed in `0.1.5-rc.2` — on that version or later the tab will not mount. Everything else in the plugin is unaffected.
 
@@ -109,8 +109,8 @@ On the plugin's row in your profile's `cordis.patch.yml` — all optional:
 
 | dsh | status |
 |---|---|
-| `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set |
-| `0.1.5-rc.2` | tested — chip, tools, `/graft` and auto-rebuild work; the `graft viz` tab does not mount |
+| `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set — the `graft viz` tab via `dsh-better-sidebar` |
+| `0.1.5-rc.2` / `0.1.5` | tested — chip, tools, `/graft` and auto-rebuild work; on `0.1.5` the `graft viz` button opens the graph in the built-in right sidebar |
 
 - Node 22+
 - the `graft` CLI on PATH (`npm install -g @nanonets/graft`)
