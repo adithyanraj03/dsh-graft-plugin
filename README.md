@@ -52,7 +52,7 @@ graft build
 
 On dsh `0.1.5` and later the button opens the graph in **dsh's own right sidebar** — a tab titled Graft, also listed on the sidebar's guide page as "The graft graph for this workspace" — and a second click focuses the tab that is already open. No install needed for that path: the registration is soft, so an older dsh without the right sidebar falls through to `dsh-better-sidebar` when it is mounted, and to a browser tab when neither is there.
 
-If your profile still runs `dsh-better-sidebar`, that path is tried **first** and behaves exactly as before. It ships as a dependency of this plugin (0.18.x), so it is already downloaded — but dsh only mounts what the profile lists:
+If your profile still runs `dsh-better-sidebar`, that path is tried **first** and behaves exactly as before. From 0.2.1 it is an **optional peer dependency** — dsh no longer downloads it for you, so add it yourself when you want it (on dsh `0.1.5-rc.2` or later it cannot mount anyway, so most profiles should skip this):
 
 ```sh
 dsh plugin --profile web add dsh-better-sidebar
@@ -133,6 +133,7 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
 
 | dsh | status |
 |---|---|
+| `0.1.7-rc.2` | tested on a live profile (0.2.1) — chip, tools, `/graft`, auto-rebuild and the model-facing guidance all verified |
 | `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set — the `graft viz` tab via `dsh-better-sidebar` |
 | `0.1.5-rc.2` / `0.1.5` | tested — chip, tools, `/graft` and auto-rebuild all work; on `0.1.5` the `graft viz` button opens the graph in the built-in right sidebar |
 

@@ -44,11 +44,11 @@
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { spawn } from 'node:child_process'
 import { access, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 
 import { createAutoSync } from './auto-sync.js'
 import { createGraftCommand } from './command.js'
-import { graftTools, resolveGraftCommand } from './graft-tools.js'
+import { graftTools, resolveGraftCommand, runGraft } from './graft-tools.js'
 
 export const name = 'graft-status'
 
@@ -70,6 +70,31 @@ export const inject = ['tools']
  */
 const CACHE_MS = 5000
 
+const readUtf8 = async (path) => {
+  try {
+    return await readFile(path, 'utf8')
+  } catch {
+    return undefined // missing, or a directory (a main checkout's .git)
+  }
+}
+
+/**
+ * The main checkout's root when `dir` is a linked git worktree, else undefined.
+ *
+ * Pure reads, no `git` child: in a worktree `.git` is a FILE pointing at the
+ * worktree's admin dir, whose `commondir` names the shared `.git`.
+ */
+async function linkedWorktreeMain(dir, readText = readUtf8) {
+  const dotGit = await readText(join(dir, '.git'))
+  if (typeof dotGit !== 'string') return undefined
+  const match = /^\s*gitdir:\s*(.+?)\s*$/m.exec(dotGit)
+  if (match === null) return undefined
+  const gitdir = resolve(dir, match[1])
+  const common = await readText(join(gitdir, 'commondir'))
+  if (typeof common !== 'string' || common.trim() === '') return undefined
+  return dirname(resolve(gitdir, common.trim()))
+}
+
 /**
  * The repository root graft would serve from `start`.
  *
@@ -78,11 +103,17 @@ const CACHE_MS = 5000
  * directory alone, because an empty `graft/` folder left behind by a removed
  * index would otherwise shadow a real one higher up.
  */
-export async function findGraftRoot(start, exists) {
+export async function findGraftRoot(start, exists, readText = readUtf8) {
   let dir = start
   for (;;) {
     for (const probe of ['.cache/stats.json', '.graph/wiring.json', 'INDEX.md']) {
       if (await exists(join(dir, 'graft', probe))) return dir
+    }
+    if (await exists(join(dir, '.git'))) {
+      // Repo boundary. A linked worktree owns its graph: answer only from it,
+      // never from the main checkout above — graft seeds a worktree's own
+      // first graph from there, and main-branch paths are wrong for this one.
+      if ((await linkedWorktreeMain(dir, readText)) !== undefined) return undefined
     }
     const parent = dirname(dir)
     // `dirname` of a filesystem root returns the root itself; that fixed point
@@ -214,14 +245,14 @@ const GRAFT_GUIDANCE = [
   'This workspace has a graft index: a prebuilt graph of every symbol, its',
   'file:line span, and who calls what.',
   '',
-  'Prefer the graft_* tools over reading or grepping files:',
+  'Must use the graft_* tools over reading or grepping files:',
   '- graft_ask to find code or understand how something works — one call usually',
   '  replaces several file reads.',
   '- graft_callers before renaming or changing a symbol, to see what depends on it.',
   '- graft_skeleton instead of reading a whole file when signatures are enough.',
   '- graft_map to orient in an unfamiliar part of the tree.',
   '',
-  'Fall back to read/grep when graft returns nothing useful, and say so rather',
+  'Fall back to ast-grep if exist, then read/rg/grep when graft returns nothing useful, and say so rather',
   'than searching twice in silence. The graph rebuilds itself after edits, so it',
   'is normally current; `/graft` rebuilds it on demand.',
 ].join('\n')
@@ -258,6 +289,30 @@ export function totalSaved(graftOwn, ours) {
 }
 
 /**
+ * Per-root tally of graft tool calls, for the chip's blue flicker.
+ *
+ * Every graft_* execute() notes its root here, and the next status poll for
+ * that repo carries the count; the client flickers the dot when it moves. The
+ * tally lives OUTSIDE the status cache on purpose: a pulse that waited out
+ * `cacheMs` would blink long after the tool call it describes had finished.
+ */
+export function createToolPulse() {
+  const counts = new Map()
+  return {
+    /** The model invoked a graft tool whose graph lives at `root`. */
+    note(root) {
+      if (typeof root !== 'string' || root === '') return
+      const hit = counts.get(root)
+      counts.set(root, { count: (hit?.count ?? 0) + 1, at: Date.now() })
+    },
+    /** undefined until the first use: no pulse, no flicker, no field. */
+    get(root) {
+      return counts.get(root)
+    },
+  }
+}
+
+/**
  * The whole status for one repo root.
  *
  * The cache is preferred over the graph because only the cache carries live
@@ -267,20 +322,22 @@ export function totalSaved(graftOwn, ours) {
  * disagree about the same repo.
  */
 export async function computeStatus(root, io) {
+  const worktreeOf = await linkedWorktreeMain(root, io.readText ?? readUtf8)
   const stats = await io.readJson(join(root, 'graft', '.cache', 'stats.json'))
   const base = stats !== undefined && typeof stats.nodeCount === 'number' && stats.nodeCount > 0
     ? { nodeCount: stats.nodeCount, edgeCount: stats.edgeCount ?? 0, freshness: freshnessOf(stats), syncedAt: stats.syncedAt ?? null }
     : undefined
 
   if (base !== undefined) {
-    return { ...base, root, savedTokens: totalSaved(await io.readSavedTokens(root), io.ourSavings?.(root)), source: 'cache' }
+    return { ...base, root, worktreeOf, savedTokens: totalSaved(await io.readSavedTokens(root), io.ourSavings?.(root)), source: 'cache' }
   }
 
   const counted = countWiring(await io.readJson(join(root, 'graft', '.graph', 'wiring.json')))
-  if (counted === undefined) return { root, ok: false, reason: 'no graph' }
+  if (counted === undefined) return { root, ok: false, reason: 'no graph', worktreeOf }
   return {
     ...counted,
     root,
+    worktreeOf,
     // The graph carries no drift signal of its own, so this reads as synced
     // until something repopulates the cache — the same concession graft's
     // statusline documents for this exact fallback.
@@ -297,6 +354,15 @@ export async function computeStatus(root, io) {
 
 /** graft viz's own default. Kept so a URL a user already has still works. */
 const VIZ_PORT = 4400
+
+/**
+ * How long an initialise from the popup may take before it gives up, in ms.
+ *
+ * The same bound as the bare /graft: a small repo finishes in about a
+ * second, a large one can take minutes, and a wedged graft must not hold
+ * the button busy forever.
+ */
+const BUILD_TIMEOUT_MS = 180_000
 
 /** Is something already answering on this port? */
 async function vizAlive(port) {
@@ -382,6 +448,12 @@ class GraftStatusRemote extends TypertRemoteService {
     if (liveOps === null) throw new Error('graft-status is not ready')
     return liveOps.viz(sessionId)
   }
+
+  /** Rebuild that session's repo, or initialise it when there is none. */
+  build(sessionId) {
+    if (liveOps === null) throw new Error('graft-status is not ready')
+    return liveOps.build(sessionId)
+  }
 }
 
 /** Emulate the @Remote decorator without decorator syntax. */
@@ -407,6 +479,7 @@ function markRemoteMethod(prototype, method) {
 
 markRemoteMethod(GraftStatusRemote.prototype, 'status')
 markRemoteMethod(GraftStatusRemote.prototype, 'viz')
+markRemoteMethod(GraftStatusRemote.prototype, 'build')
 
 export function apply(ctx, config = {}) {
   const fallbackFrom = typeof config.cwd === 'string' && config.cwd.length > 0 ? config.cwd : process.cwd()
@@ -422,6 +495,9 @@ export function apply(ctx, config = {}) {
   const savings = new Map()
   let savingsLoaded = false
   let savingsDirty = false
+
+  /** Per-root graft tool-use pulses; the chip's dot blinks blue when one moves. */
+  const pulses = createToolPulse()
 
   const loadSavings = async () => {
     if (savingsLoaded) return
@@ -452,6 +528,7 @@ export function apply(ctx, config = {}) {
   const io = {
     readJson,
     readSavedTokens,
+    readText: readUtf8,
     ourSavings: (root) => savings.get(root) ?? 0,
     exists: async (path) => {
       try {
@@ -479,11 +556,21 @@ export function apply(ctx, config = {}) {
   /** root -> in-flight start, so a double click cannot race two spawns. */
   const vizPending = new Map()
 
+  /**
+   * The rebuild engine, shared by the automatic hooks below and the popup's
+   * Build button. Hoisted out of the `autoBuild` block on purpose: the button
+   * must rebuild even in a profile that turned the automatic hooks off.
+   */
+  const autoSync = createAutoSync({
+    cliPath: resolveGraftCommand().prefix[0],
+    minIntervalMs: config.autoBuildMinIntervalMs,
+    writeTools: config.autoBuildTools,
+  })
+
   const vizDeps = {
     alive: vizAlive,
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    spawn: (root, port) => {
-      // Same shell-free invocation the tools use: running graft's own cli.js
+    spawn: (root, port) => {      // Same shell-free invocation the tools use: running graft's own cli.js
       // with this Node means the child IS graft, not a cmd.exe wrapping it —
       // so an ordinary kill() reaches it and no process-tree surgery is needed.
       const how = resolveGraftCommand()
@@ -510,7 +597,7 @@ export function apply(ctx, config = {}) {
       const from = cwdFor(sessionId)
       let root
       try {
-        root = await findGraftRoot(from, io.exists)
+        root = await findGraftRoot(from, io.exists, io.readText)
       } catch (error) {
         return { ok: false, reason: String(error?.message ?? error), from }
       }
@@ -518,7 +605,9 @@ export function apply(ctx, config = {}) {
 
       const now = Date.now()
       const hit = cache.get(root)
-      if (hit !== undefined && now - hit.at < cacheMs) return hit.value
+      // The pulse rides ALONGSIDE the cached body, outside it: a blink that
+      // waited out cacheMs would land after the tool call had already ended.
+      if (hit !== undefined && now - hit.at < cacheMs) return { ...hit.value, toolUse: pulses.get(root) }
 
       let value
       try {
@@ -528,12 +617,12 @@ export function apply(ctx, config = {}) {
         value = { ok: false, reason: String(error?.message ?? error), from }
       }
       cache.set(root, { value, at: now })
-      return value
+      return { ...value, toolUse: pulses.get(root) }
     },
 
     viz: async (sessionId) => {
       const from = cwdFor(sessionId)
-      const root = await findGraftRoot(from, io.exists)
+      const root = await findGraftRoot(from, io.exists, io.readText)
       if (root === undefined) return { ok: false, reason: 'no graft index above ' + from, from }
 
       // Already serving this repo: reuse it. Checked before the pending map so
@@ -567,6 +656,44 @@ export function apply(ctx, config = {}) {
         vizPending.delete(root)
       }
     },
+
+    build: async (sessionId) => {
+      const from = cwdFor(sessionId)
+      let root
+      try {
+        root = await findGraftRoot(from, io.exists, io.readText)
+      } catch (error) {
+        return { ok: false, reason: String(error?.message ?? error), from }
+      }
+      // No index above the workspace: initialise the workspace itself, plain
+      // offline `graft build` — the same argv the bare /graft runs, $0, no
+      // API key. sync-run cannot do this job (no index yet to sync), so this
+      // is the one place a bare build is correct.
+      if (root === undefined) {
+        const result = await runGraft(['build', from], from, { timeoutMs: BUILD_TIMEOUT_MS })
+        const built = await findGraftRoot(from, io.exists, io.readText)
+        if (built === undefined) {
+          return { ok: false, reason: `graft build produced no index in ${from}.\n\n${result.text.slice(0, 1200)}`, root: from }
+        }
+        cache.delete(from)
+        return { ok: true, root: from, initialising: true }
+      }
+      // The SAME rebuild the automatic hooks run — graft's own sync-run.js,
+      // which patches stats.json on the way out (clearing `dirty`, stamping
+      // `syncedAt`, writing the new counts). A bare `graft build` was tried
+      // here first and shipped as a button that changed nothing: it writes the
+      // graph but NOT stats.json, so the pill kept reading the old `dirty`
+      // flag and never flipped to IN SYNC.
+      const outcome = await autoSync.rebuild(root)
+      if (outcome !== 'started') {
+        return { ok: false, reason: `graft rebuild did not start (${outcome})`, root }
+      }
+      // Dropped so the next status poll reads the rebuilding graph, not the
+      // pre-build counts for the rest of the cache window. sync-run sets
+      // `syncing` itself, so the pill shows syncing → in sync for free.
+      cache.delete(root)
+      return { ok: true, root }
+    },
   }
 
   new GraftStatusRemote(ctx)
@@ -577,7 +704,8 @@ export function apply(ctx, config = {}) {
   if (config.tools !== false) {
     const toolDeps = {
       fallbackCwd: fallbackFrom,
-      findRoot: (start) => findGraftRoot(start, io.exists),
+      findRoot: (start) => findGraftRoot(start, io.exists, io.readText),
+      noteUse: (root) => pulses.note(root),
       recordSavings: (root, saved) => {
         savings.set(root, (savings.get(root) ?? 0) + saved)
         savingsDirty = true
@@ -603,7 +731,7 @@ export function apply(ctx, config = {}) {
           scope.commands.register(
             createGraftCommand({
               fallbackCwd: fallbackFrom,
-              findRoot: (start) => findGraftRoot(start, io.exists),
+              findRoot: (start) => findGraftRoot(start, io.exists, io.readText),
               readJson,
               countWiring,
             }),
@@ -616,37 +744,59 @@ export function apply(ctx, config = {}) {
   // The standing instruction, registered on each agent's OWN context so no
   // preset can shadow it (see GRAFT_GUIDANCE for why the persona could not).
   if (config.promptSection !== false) {
-    /** Agent contexts already carrying the section; a duplicate name throws. */
-    const briefed = new WeakSet()
+    /** Agent contexts already carrying the section -> the registering fiber. */
+    const briefed = new WeakMap()
 
-    ctx.on('agent/session-start', (payload) => {
-      const agentCtx = payload?.agent?.ctx
+    const installGuidance = (agent) => {
+      const agentCtx = agent?.ctx
       if (agentCtx === undefined || agentCtx === null || briefed.has(agentCtx)) return
-      briefed.add(agentCtx)
       try {
-        // `get` rather than `agentCtx.systemPrompt`: the property accessor
-        // throws without a declared inject, and this plugin declares none for
-        // it on purpose — a deployment without the service should lose the
-        // sentence, not the chip and the tools.
-        const prompt = agentCtx.get?.('systemPrompt')
-        if (typeof prompt?.section !== 'function') return
-        agentCtx.effect?.(
-          () => prompt.section({ name: 'graft-status:usage', order: GUIDANCE_ORDER, text: GRAFT_GUIDANCE }),
-          'graft-status: prompt guidance',
-        )
+        // dsh 0.1.7 removed the old session-start event; `agent/created` is
+        // the seam its own plugins use. `inject` rather than `agentCtx.get`:
+        // an agent scope without the prompt registry never calls this back —
+        // it loses the sentence, not the session.
+        const fiber = agentCtx.inject?.(['systemPrompt'], (scope) => {
+          try {
+            scope.systemPrompt?.section?.({
+              name: 'graft-status:usage',
+              order: GUIDANCE_ORDER,
+              text: GRAFT_GUIDANCE,
+            })
+          } catch {
+            // Already registered (e.g. after a plugin reload).
+          }
+        })
+        if (fiber !== undefined) briefed.set(agentCtx, fiber)
       } catch {
         // A section that fails to register costs a nudge, never the session.
       }
+    }
+
+    const uninstallGuidance = (agent) => {
+      const agentCtx = agent?.ctx
+      const fiber = agentCtx === undefined || agentCtx === null ? undefined : briefed.get(agentCtx)
+      if (fiber === undefined) return
+      briefed.delete(agentCtx)
+      try {
+        void fiber.dispose?.()
+      } catch {
+        // Teardown must not throw.
+      }
+    }
+
+    // Agents that already exist when this row mounts (plugin reload).
+    ctx.inject?.(['agents'], (scope) => {
+      for (const agent of scope.agents?.list?.() ?? []) installGuidance(agent)
     })
+    ctx.on('agent/created', ({ agent }) => installGuidance(agent))
+    ctx.on('agent/disposed', ({ agent }) => uninstallGuidance(agent))
   }
 
   // Auto-rebuild: graft's two Claude Code hooks, on dsh's own seams.
+  // The autoSync instance itself is shared (see above): this block only wires
+  // the AUTOMATIC triggers, so `autoBuild: false` silences the hooks while
+  // the popup's manual Build keeps working.
   if (config.autoBuild !== false) {
-    const autoSync = createAutoSync({
-      cliPath: resolveGraftCommand().prefix[0],
-      minIntervalMs: config.autoBuildMinIntervalMs,
-      writeTools: config.autoBuildTools,
-    })
 
     ctx.on('tools/execute', async (exec, next) => {
       const result = await next()
@@ -657,8 +807,11 @@ export function apply(ctx, config = {}) {
         // Going via the sessions registry would be a lookup to reach a value
         // already in hand, and would differ if the two ever disagreed.
         const from = exec?.agent?.session?.header?.cwd ?? fallbackFrom
-        const root = await findGraftRoot(from, io.exists)
-        if (root !== undefined) void autoSync.markDirty(root)
+        const root = await findGraftRoot(from, io.exists, io.readText)
+        if (root !== undefined) {
+          // A rejected promise here would be unhandled — fatal to dsh.
+          void autoSync.markDirty(root).catch(() => {})
+        }
       }
       return result
     })
@@ -667,7 +820,7 @@ export function apply(ctx, config = {}) {
 
     ctx.on('agent/turn-stopping', async (payload) => {
       const cwd = payload?.agent?.session?.header?.cwd ?? fallbackFrom
-      const root = await findGraftRoot(cwd, io.exists)
+      const root = await findGraftRoot(cwd, io.exists, io.readText)
       if (root === undefined) return
       const outcome = await autoSync.syncIfDirty(root)
       if (outcome === 'started') {
