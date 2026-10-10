@@ -256,6 +256,42 @@ check('that dependency is soft too', clientSource.includes('ctx.inject(["sidebar
 check('the body reads the session from either host', clientSource.includes('props?.sessionId ?? props?.scope?.sessionId'))
 check('the browser tab survives only as the last resort', clientSource.includes('neither sidebar'))
 
+// The remote descriptors must survive dsh 0.2's typert codec validation, which
+// runs inside `ctx.remote.$mount`: a strict codec needs a typeSymbol and a
+// `create()` factory returning a schema with `parse`. The 0.1 shape (`schema`
+// only) threw "strict codec has no create() factory", rejected apply(), and
+// took the whole plugin down. The client may only use strict codecs for
+// parameters. The descriptor block is lifted out of client.js and evaluated,
+// so this tests the shipped objects, not a copy.
+console.log('\nremote descriptors (dsh 0.2 codec contract)')
+const descriptorBlock = /function identity\(value\) \{[\s\S]*?\r?\n    const CONTRIBUTION = \{[\s\S]*?\r?\n    \};/.exec(clientSource)?.[0]
+check('descriptor block found in client.js', descriptorBlock !== undefined)
+const CONTRIBUTION = descriptorBlock ? new Function(`${descriptorBlock}; return CONTRIBUTION;`)() : { descriptors: [] }
+function codecProblem(codec, { parameter }) {
+  if (!codec || typeof codec !== 'object') return 'missing codec'
+  if (codec.mode === 'src-json') return parameter ? 'client parameters must be strict' : undefined
+  if (codec.mode !== 'strict') return `unknown mode ${codec.mode}`
+  if (typeof codec.typeSymbol !== 'string' || codec.typeSymbol === '') return 'empty typeSymbol'
+  if (typeof codec.create !== 'function') return 'strict codec has no create() factory'
+  const schema = codec.create()
+  if (typeof schema?.parse !== 'function') return 'create() returned no parse()'
+  if (codec.create() !== schema) return 'create() is not memoized'
+  // dsh 0.1 read `schema` directly; keep it so older hosts still load.
+  if (typeof codec.schema?.parse !== 'function') return 'no 0.1 schema fallback'
+  return undefined
+}
+check('declares the status and viz descriptors', CONTRIBUTION.descriptors.map((d) => d.method).join() === 'status,viz')
+for (const d of CONTRIBUTION.descriptors) {
+  for (const p of d.parameters) {
+    const problem = codecProblem(p.codec, { parameter: true })
+    check(`${d.id} parameter ${p.name} codec is valid`, problem === undefined, problem)
+  }
+  const problem = codecProblem(d.result, { parameter: false })
+  check(`${d.id} result codec is valid`, problem === undefined, problem)
+  const sample = { ok: true, value: { root: '/r', nodeCount: 1 } }
+  check(`${d.id} result decodes as a pass-through`, d.result.create().parse(sample) === sample)
+}
+
 await rm(fixture, { recursive: true, force: true })
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`)

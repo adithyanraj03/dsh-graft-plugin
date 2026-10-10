@@ -135,6 +135,7 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
 |---|---|
 | `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set — the `graft viz` tab via `dsh-better-sidebar` |
 | `0.1.5-rc.2` / `0.1.5` | tested — chip, tools, `/graft` and auto-rebuild all work; on `0.1.5` the `graft viz` button opens the graph in the built-in right sidebar |
+| `0.2.0-rc.2` | needs plugin `0.2.1`+ — earlier releases fail to activate (see Troubleshooting) |
 
 - Node 22+
 - the `graft` CLI on PATH (`npm install -g @nanonets/graft`)
@@ -167,6 +168,8 @@ registering "dsh-graft-plugin" via __ModuleLoader__.load
 ## Troubleshooting
 
 **No chip appears and dsh started without errors.** The plugin is in the profile's `package.json` `dependencies` but not in `dsh.profile.bundles` — which happens under pnpm 10+ when the `add` ends non-zero on `ERR_PNPM_IGNORED_BUILDS`; dsh skips the bundle row in that case and starts up looking healthy. Fix: `pnpm approve-builds` in the profile directory (tick `dsh-graft-plugin`), then re-run `dsh plugin --profile web add dsh-graft-plugin`. If `pnpm approve-builds` reports nothing awaiting approval, check `pnpm-workspace.yaml` for an unanswered `dsh-graft-plugin` entry (pnpm's approval placeholder) and set its value to `true` first.
+
+**On dsh 0.2 the plugin fails to load with `strict codec has no create() factory`, and dsh offers to remove it.** dsh 0.2 requires every strict remote codec to carry a `create()` schema factory; plugin releases before `0.2.1` only had the 0.1 `schema` key. Update to `0.2.1` or later, which carries both and so loads on 0.1 and 0.2.
 
 **`/graft` says the graft CLI is not on PATH.** The postinstall was blocked or skipped (see Install): `npm install -g @nanonets/graft`.
 
