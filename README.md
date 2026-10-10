@@ -48,6 +48,27 @@ cd <your repo>
 graft build
 ```
 
+### In the desktop app
+
+The desktop dsh installs plugins from its own **Plugins** settings — no CLI, no profile directory:
+
+1. Open **Plugins** (settings, left sidebar) and click **Add plugin**.
+2. Paste the GitHub repository address into the field (the package name `dsh-graft-plugin` works too):
+
+   ```
+   https://github.com/adithyanraj03/dsh-graft-plugin
+   ```
+
+3. Click **Install**.
+
+![The Add plugin dialog with the repository address](assets/dsh-desktop-app-install.png)
+
+The dialog switches to the **Installed** confirmation, and the plugin appears under **Installed** at the bottom of the settings page:
+
+![The Installed confirmation with the install details](assets/dsh-desktop-app-install-2.png)
+
+> The dialog notes that installed plugins **do not update automatically yet** — to upgrade, uninstall and install again. The graft CLI requirement (`npm install -g @nanonets/graft`) is the same.
+
 ### The sidebar tab
 
 On dsh `0.1.5` and later the button opens the graph in **dsh's own right sidebar** — a tab titled Graft, also listed on the sidebar's guide page as "The graft graph for this workspace" — and a second click focuses the tab that is already open. No install needed for that path: the registration is soft, so an older dsh without the right sidebar falls through to `dsh-better-sidebar` when it is mounted, and to a browser tab when neither is there.
