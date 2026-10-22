@@ -71,6 +71,10 @@ const DEFAULT_WRITE_TOOLS = ['write', 'edit', 'str_replace_editor', 'pwsh', 'bas
 
 /** Graft's own state helpers, loaded from wherever graft is installed. */
 async function loadGraftState(cliPath) {
+  // A cli we cannot locate (bare shim on PATH) must degrade to "unavailable",
+  // never throw: this runs inside fire-and-forget middleware and a rejection
+  // here is fatal to dsh.
+  if (typeof cliPath !== 'string' || cliPath === '') return undefined
   const claudeDir = join(dirname(cliPath), 'claude')
   const statePath = join(claudeDir, 'state.js')
   const syncRun = join(claudeDir, 'sync-run.js')
@@ -132,7 +136,11 @@ export function createAutoSync(deps = {}) {
   let loaded
   const graft = async () => {
     if (loaded === undefined) {
-      loaded = deps.graft !== undefined ? deps.graft : await loadGraftState(deps.cliPath)
+      try {
+        loaded = deps.graft !== undefined ? await deps.graft : await loadGraftState(deps.cliPath)
+      } catch {
+        loaded = null // any loader failure counts as "graft unavailable"
+      }
       if (loaded === undefined) loaded = null
     }
     return loaded
@@ -161,7 +169,7 @@ export function createAutoSync(deps = {}) {
           root,
           setTimer(() => {
             timers.delete(root)
-            void api.syncIfDirty(root)
+            void api.syncIfDirty(root).catch(() => {})
           }, debounceMs),
         )
       }
@@ -200,6 +208,30 @@ export function createAutoSync(deps = {}) {
         return 'unreadable'
       }
       if (stats?.dirty !== true && !pending.has(root)) return 'clean'
+
+      return api.rebuild(root)
+    },
+
+    /**
+     * Rebuild one repo NOW, whether or not it looks dirty.
+     *
+     * The popup's Build button lands here, not in syncIfDirty: its gate reads
+     * graft's `dirty` flag, and a repo rebuilt by a plain `graft build` — which
+     * never patches stats.json — can read clean while being stale, answering
+     * 'clean' and spawning nothing. A pressed button that changes nothing is
+     * the failure this exists to prevent. The lock and the interval floor
+     * still apply: forced means "skip the dirt check", not "race a running
+     * build".
+     *
+     * @returns why it did or did not run, for the harness and the log.
+     */
+    rebuild: async (root) => {
+      if (typeof root !== 'string' || root === '') return 'no-root'
+      const g = await graft()
+      if (g === null) return 'graft-unavailable'
+
+      const since = now() - (lastRun.get(root) ?? -Infinity)
+      if (since < minIntervalMs) return 'too-soon'
 
       // The lock is graft's, so a rebuild already running — started here, or by
       // Claude Code in the same repo — is left alone rather than raced.

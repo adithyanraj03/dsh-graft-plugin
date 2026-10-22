@@ -1,6 +1,6 @@
 {
   "name": "dsh-graft-plugin",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Shows which graft index a dsh session is serving and whether it still matches the code, and gives the model graft_ask, graft_grep, graft_callers, graft_skeleton and graft_map as native tools.",
   "type": "module",
   "main": "src/index.js",
@@ -25,12 +25,13 @@
     "scripts/test-tools.mjs",
     "scripts/test-autosync.mjs",
     "scripts/test-command.mjs",
+    "scripts/test-guidance.mjs",
     "README.md",
     "LICENSE",
     "screenshots.json"
   ],
   "scripts": {
-    "test": "node scripts/test-harness.mjs && node scripts/test-autosync.mjs && node scripts/test-command.mjs",
+    "test": "node scripts/test-harness.mjs && node scripts/test-autosync.mjs && node scripts/test-command.mjs && node scripts/test-guidance.mjs",
     "test:live": "node scripts/test-tools.mjs",
     "postinstall": "node scripts/postinstall.mjs"
   },
@@ -45,15 +46,19 @@
       ]
     }
   },
-  "dependencies": {
-    "dsh-better-sidebar": "^0.18.0"
-  },
   "peerDependencies": {
-    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0-rc.6"
+    "@deepseek-ai/dsh-typert-protocol": ">=0.1.0-rc.6",
+    "dsh-better-sidebar": ">=0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "dsh-better-sidebar": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-tools": "0.1.2-rc.1",
-    "@deepseek-ai/dsh-typert-protocol": "0.1.2-rc.1"
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2"
   },
   "keywords": [
     "dsh-plugin",

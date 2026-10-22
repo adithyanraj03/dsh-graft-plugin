@@ -81,6 +81,14 @@ export function resolveGraftCommand(env = process.env, exists = existsSync, exec
     const cli = join(dir, 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
     if (exists(cli)) return { command: execPath, prefix: [cli], shell: false }
   }
+  // A bun global install puts only the shim on PATH; the package lives under
+  // $BUN_INSTALL/install/global. Missing it left prefix empty, which auto-sync
+  // used to turn into a fatal dirname(undefined).
+  const bunRoot = env.BUN_INSTALL ?? join(env.HOME ?? env.USERPROFILE ?? '.', '.bun')
+  if (typeof bunRoot === 'string' && bunRoot !== '') {
+    const bunCli = join(bunRoot, 'install', 'global', 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
+    if (exists(bunCli)) return { command: execPath, prefix: [bunCli], shell: false }
+  }
   return { command: 'graft', prefix: [], shell: process.platform === 'win32' }
 }
 
@@ -189,6 +197,9 @@ function graftTool(spec, deps) {
             'Run `graft build` in it once — it needs no API key — and this tool will work from then on.',
         }
       }
+      // Announced BEFORE the run, so the chip's dot flickers while graft is
+      // actually working, not only after it has answered.
+      deps.noteUse?.(found)
       const result = await runGraft([...spec.argv(args), found], found, deps)
       const saved = savedTokensIn(result.text)
       if (saved > 0) deps.recordSavings?.(found, saved)
