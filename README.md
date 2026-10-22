@@ -6,8 +6,8 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin tha
 
 It does four things:
 
-- **A chip in the composer** naming the graft index the current session is actually serving, whether it still matches the code, and how many tokens graft has saved in that repo.
-- **Five tools for the model** — `graft_ask`, `graft_grep`, `graft_callers`, `graft_skeleton`, `graft_map` — resolved per session, so one dsh can serve several workspaces at once.
+- **A chip in the composer** naming the graft index the current session is actually serving, whether it still matches the code, and how many tokens graft has saved in that repo. Its card carries a **Build** button — rebuild the index, or create the first one.
+- **Five tools for the model** — `graft_ask`, `graft_grep`, `graft_callers`, `graft_skeleton`, `graft_map` — resolved per session, so one dsh can serve several workspaces at once, git worktrees included, each with its own graph.
 - **`/graft`** to build or rebuild the index, and **auto-rebuild** after the model edits files.
 - **A `graft viz` button** that opens the graph in dsh's built-in right sidebar (0.1.5+), in [dsh-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) if you still run it, and in a browser tab as the last resort.
 
@@ -101,6 +101,14 @@ Hovering (or clicking) opens a card with the resolved root, node and edge counts
 
 ![The chip in the composer, with its hover card](assets/chip.png)
 
+The card's header carries a **Build** button beside the status pill. In a repo that already has an index it runs the same rebuild the auto-rebuild runs — graft's own sync — and holds "Building…" until the pill reads *in sync*, giving up after two minutes and showing the reason. In a workspace with no index yet, Build first asks in dsh's own dialog ("Build graft index?" — Cancel / Build index; Cancel, Escape or clicking outside builds nothing), then runs a plain offline `graft build`, which writes a `graft/` directory there.
+
+While a `graft_*` tool is running, the chip's dot blinks violet.
+
+Chip, card and viz tab are painted with dsh's own `--dsw-*` theme variables, so they follow the active theme — including theme plugins.
+
+A linked git worktree gets its own graph, never the main checkout's: the card and the viz bar name the main checkout it belongs to (`git worktree of <repo>`). With no graph yet, `/graft` in the worktree seeds the first one from it.
+
 The root is resolved from **the session's own workspace**, not from wherever dsh was launched. That is the whole reason this exists rather than the `graft mcp` server: `graft mcp` resolves its repo once, from its own working directory at startup, and nothing can re-point it afterwards. Launched from a home directory it answers *"no graph found"* for every workspace you open.
 
 ### The visualiser
@@ -146,8 +154,8 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
     cwd: 'C:/path/to/repo'   # pin to one repo instead of resolving per session
     tools: false             # drop the graft_* tools, keep the chip
     command: false           # drop /graft
-    promptSection: false     # stop telling the model to prefer graft
-    autoBuild: false         # stop rebuilding after edits
+    promptSection: false     # stop telling the model to use graft
+    autoBuild: false         # stop rebuilding after edits (the card's Build button still works)
 ```
 
 ## Requirements
@@ -161,7 +169,7 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
 | `0.2.0-rc.2` | needs plugin `0.2.1`+ — earlier releases fail to activate (see Troubleshooting) |
 
 - Node 22+
-- the `graft` CLI on PATH (`npm install -g @nanonets/graft`)
+- the `graft` CLI on PATH (`npm install -g @nanonets/graft`). A bun global install (`bun add -g @nanonets/graft`) is detected too, via `$BUN_INSTALL` or `~/.bun`.
 
 The client bundle requires only `react`, which is why it survives the dsh `0.1.5-rc.2` client-package removals that broke several neighbouring plugins.
 

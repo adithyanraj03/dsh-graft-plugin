@@ -64,6 +64,8 @@ A chip beside the model name, resolved from **the session's workspace** rather t
 
 ![The chip in the composer, with its hover card](assets/chip.png)
 
+The card's header carries a **Build** button: in an indexed repo it runs the same rebuild as the auto-rebuild and holds "Building…" until the pill reads in sync; in a workspace with no index it asks first (dsh's own dialog), then runs a plain offline `graft build`. The dot blinks violet while a `graft_*` tool runs, and chip, card and tab follow the active dsh theme. A linked git worktree gets its own graph — never the main checkout's — and `/graft` there seeds the first one from it.
+
 This is the reason the plugin exists rather than the `graft mcp` server. `graft mcp` resolves its repo once, from its own working directory at startup, and nothing can re-point it afterwards. Launched from a home directory it answers *"no graph found"* for every workspace you open — while the CLI, run in the same repo, answers fine.
 
 ### Gives the model five tools
@@ -109,8 +111,8 @@ On the plugin's row in your profile's `cordis.patch.yml` — all optional:
     cwd: 'C:/path/to/repo'   # pin to one repo instead of resolving per session
     tools: false             # drop the graft_* tools, keep the chip
     command: false           # drop /graft
-    promptSection: false     # stop telling the model to prefer graft
-    autoBuild: false         # stop rebuilding after edits
+    promptSection: false     # stop telling the model to use graft
+    autoBuild: false         # stop rebuilding after edits (the card's Build button still works)
 ```
 
 ---
@@ -126,7 +128,7 @@ On the plugin's row in your profile's `cordis.patch.yml` — all optional:
 | `0.2.0-rc.2` | needs plugin `0.2.1`+ — earlier releases fail to activate |
 
 - Node 22+
-- the `graft` CLI on PATH (`npm install -g @nanonets/graft`)
+- the `graft` CLI on PATH (`npm install -g @nanonets/graft`). A bun global install (`bun add -g @nanonets/graft`) is detected too, via `$BUN_INSTALL` or `~/.bun`.
 
 The client bundle requires only `react`, which is why it survives the dsh `0.1.5-rc.2` client-package removals that broke several neighbouring plugins.
 
