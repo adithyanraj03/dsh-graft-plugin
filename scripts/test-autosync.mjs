@@ -154,7 +154,7 @@ check('and sync stays unavailable, not fatal', (await throwing.syncIfDirty('C:/t
 
 console.log('\n--- resolveGraftCommand finds graft however it was installed ---')
 const fakeExists = (set) => (p) => set.has(p)
-const bunCli = '/home/x/.bun/install/global/node_modules/@nanonets/graft/dist/cli.js'
+const bunCli = join('/home/x', '.bun', 'install', 'global', 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
 // A bun global install: only the shim is on PATH, the package lives under
 // $BUN_INSTALL/install/global. The PATH-only scan returned prefix: [] here,
 // which is what fed undefined into loadGraftState above.

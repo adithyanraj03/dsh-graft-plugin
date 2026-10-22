@@ -252,7 +252,7 @@ const GRAFT_GUIDANCE = [
   '- graft_skeleton instead of reading a whole file when signatures are enough.',
   '- graft_map to orient in an unfamiliar part of the tree.',
   '',
-  'Fall back to ast-grep if exist, then read/rg/grep when graft returns nothing useful, and say so rather',
+  'Fall back to read/grep (or ast-grep, if it is installed) when graft returns nothing useful, and say so rather',
   'than searching twice in silence. The graph rebuilds itself after edits, so it',
   'is normally current; `/graft` rebuilds it on demand.',
 ].join('\n')
@@ -289,7 +289,7 @@ export function totalSaved(graftOwn, ours) {
 }
 
 /**
- * Per-root tally of graft tool calls, for the chip's blue flicker.
+ * Per-root tally of graft tool calls, for the chip's violet flicker.
  *
  * Every graft_* execute() notes its root here, and the next status poll for
  * that repo carries the count; the client flickers the dot when it moves. The
@@ -496,7 +496,7 @@ export function apply(ctx, config = {}) {
   let savingsLoaded = false
   let savingsDirty = false
 
-  /** Per-root graft tool-use pulses; the chip's dot blinks blue when one moves. */
+  /** Per-root graft tool-use pulses; the chip's dot blinks violet when one moves. */
   const pulses = createToolPulse()
 
   const loadSavings = async () => {
@@ -570,7 +570,8 @@ export function apply(ctx, config = {}) {
   const vizDeps = {
     alive: vizAlive,
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    spawn: (root, port) => {      // Same shell-free invocation the tools use: running graft's own cli.js
+    spawn: (root, port) => {
+      // Same shell-free invocation the tools use: running graft's own cli.js
       // with this Node means the child IS graft, not a cmd.exe wrapping it —
       // so an ordinary kill() reaches it and no process-tree surgery is needed.
       const how = resolveGraftCommand()

@@ -119,8 +119,11 @@ On the plugin's row in your profile's `cordis.patch.yml` — all optional:
 
 | dsh | status |
 |---|---|
+| `0.2.1-rc.2` | test suites pass against the `0.2.1-rc.2` packages — chip, tools, `/graft`, auto-rebuild and the model-facing guidance; the dual-shape codecs load on both 0.1 and 0.2 hosts |
+| `0.1.7-rc.2` | tested on a live profile (0.3.0) — chip, tools, `/graft`, auto-rebuild and the model-facing guidance all verified |
 | `0.1.2-rc.1` – `0.1.0-rc.7` | tested, full feature set — the `graft viz` tab via `dsh-better-sidebar` |
 | `0.1.5-rc.2` / `0.1.5` | tested — chip, tools, `/graft` and auto-rebuild work; on `0.1.5` the `graft viz` button opens the graph in the built-in right sidebar |
+| `0.2.0-rc.2` | needs plugin `0.2.1`+ — earlier releases fail to activate |
 
 - Node 22+
 - the `graft` CLI on PATH (`npm install -g @nanonets/graft`)
