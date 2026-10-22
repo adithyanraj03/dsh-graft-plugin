@@ -38,6 +38,16 @@ graft build
 
 That is the whole setup. The chip appears in the composer and the model gets the tools.
 
+### In the desktop app
+
+The desktop dsh installs from its own **Plugins** settings: click **Add plugin**, paste `https://github.com/adithyanraj03/dsh-graft-plugin` (or the package name `dsh-graft-plugin`), and click **Install**. The dialog confirms with the **Installed** state:
+
+![The Add plugin dialog with the repository address](assets/dsh-desktop-app-install.png)
+
+![The Installed confirmation with the install details](assets/dsh-desktop-app-install-2.png)
+
+Installed plugins do not update automatically yet — to upgrade, uninstall and install again.
+
 ---
 
 ## What it does

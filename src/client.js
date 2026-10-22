@@ -65,10 +65,23 @@ window.__ModuleLoader__.load({
     function identity(value) {
       return value;
     }
-    // dsh 0.1.7 strict codecs require a create() factory returning the schema;
-    // the old schema:{parse} shape is refused at $mount and the client entry
-    // fails to activate. Payloads are plain JSON, so parse is identity.
-    const CODEC = { mode: "strict", typeSymbol: "graft-status/json", create: () => ({ parse: identity }) };
+    /*
+     * Pass-through codec carrying both codec shapes: dsh 0.2's typert
+     * validator requires a strict codec to expose a `create()` factory
+     * returning the schema (it throws "strict codec has no create() factory"
+     * otherwise, failing `$mount` and with it the whole plugin), while dsh 0.1
+     * read `schema` directly; dsh 0.1.7-rc.2 already refused a codec with no
+     * factory on this fork. `create()` returns the same schema object every
+     * time. The host still runs assertJsonValue on every decoded value, so
+     * identity is safe.
+     */
+    const IDENTITY_SCHEMA = { parse: identity };
+    const CODEC = {
+      mode: "strict",
+      typeSymbol: "graft-status/json",
+      schema: IDENTITY_SCHEMA,
+      create: () => IDENTITY_SCHEMA,
+    };
     const descriptor = (method, names) => ({
       id: "graft-status#graftStatus/" + method,
       service: "graftStatus",
@@ -76,7 +89,7 @@ window.__ModuleLoader__.load({
       method,
       invocation: { kind: "direct" },
       parameters: names.map((name) => ({ name, wire: name, source: "json", codec: CODEC })),
-      result: { mode: "strict", typeSymbol: "graft-status/json", create: () => ({ parse: identity }) },
+      result: CODEC,
       sourceLocation: { file: "graft-status/client.js", line: 1, column: 1 },
     });
     const CONTRIBUTION = {

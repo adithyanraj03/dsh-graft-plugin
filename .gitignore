@@ -29,3 +29,8 @@ MARKETPLACE.md
 
 # Scratch release notes (per-release, never committed)
 .relnotes.md
+
+# Claude Code local state and memory (never committed)
+.claude/
+CLAUDE.local.md
+memory/
