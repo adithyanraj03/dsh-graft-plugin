@@ -182,7 +182,7 @@ window.__ModuleLoader__.load({
         ".gs-chip.gs-clickable:focus-visible{outline:2px solid var(--dsw-focus-ring-color,var(--dsw-alias-brand-primary,#4b8bd6));outline-offset:2px}",
         ".gs-viz{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;",
         "padding:0;border:0;border-radius:var(--dsw-radius-sm,8px);background:transparent;color:var(--dsw-alias-label-secondary,inherit);",
-        "cursor:pointer;--accent:var(--dsw-alias-brand-primary,#e5484d)}",
+        "cursor:pointer;--accent:var(--dsh-graft-accent,#e5484d)}",
         ".gs-viz:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.14))}",
         ".gs-viz:disabled{opacity:.5;cursor:progress}",
         ".gs-viz.gs-err{color:var(--dsw-alias-state-error-primary,#e5484d)}",
@@ -515,7 +515,10 @@ window.__ModuleLoader__.load({
     /** The graft mark: thick trunk with a leaf, thin branches, accent node.
      *  The same design as `assets/icon.svg` and the banners, at button scale
      *  (trunk and branch widths match the tuned vector's tube widths).
-     *  `--accent` is set by `.gs-viz`. */
+     *  `--accent` is set by `.gs-viz` to the graft red — deliberately NOT the
+     *  theme's brand-primary, which some themes set to white and which then
+     *  washes the accent out of the mark entirely; themes may opt in with
+     *  `--dsh-graft-accent`. */
     function GraphIcon() {
       return h(
         "svg",
