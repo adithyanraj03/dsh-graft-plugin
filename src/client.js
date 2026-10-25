@@ -512,21 +512,25 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** The graph mark, exactly as supplied. `--accent` is set by `.gs-viz`. */
+    /** The graft mark: thick trunk with a leaf, thin branches, accent node.
+     *  The same design as `assets/icon.svg` and the banners, at button scale
+     *  (trunk and branch widths match the tuned vector's tube widths).
+     *  `--accent` is set by `.gs-viz`. */
     function GraphIcon() {
       return h(
         "svg",
         { width: 19, height: 19, viewBox: "0 0 24 24", "aria-hidden": "true" },
+        h("path", { d: "M11.6 17.8 C9.9 17.9 8.2 17.1 7.3 15.4 C9.2 14.9 11 15.9 11.6 17.8 Z", fill: "var(--accent)" }),
         h(
           "g",
-          { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" },
-          h("path", { d: "M12 21 V12" }),
-          h("path", { d: "M12 12 L6.8 6.6" }),
-          h("path", { stroke: "var(--accent)", d: "M12 12 L17.4 7.6" }),
+          { fill: "none", stroke: "currentColor", strokeLinecap: "round" },
+          h("path", { strokeWidth: 3.1, d: "M12 21 V12" }),
+          h("path", { strokeWidth: 1.7, d: "M12 12 L6.8 6.6" }),
+          h("path", { stroke: "var(--accent)", strokeWidth: 1.8, d: "M12 12 L17.4 7.6" }),
         ),
-        h("circle", { cx: 12, cy: 12, r: 2.1, fill: "currentColor" }),
-        h("circle", { cx: 6.8, cy: 6.6, r: 1.7, fill: "currentColor" }),
-        h("circle", { cx: 17.4, cy: 7.6, r: 1.7, fill: "var(--accent)" }),
+        h("circle", { cx: 12, cy: 12, r: 2.2, fill: "currentColor" }),
+        h("circle", { cx: 6.8, cy: 6.6, r: 1.8, fill: "currentColor" }),
+        h("circle", { cx: 17.4, cy: 7.6, r: 1.8, fill: "var(--accent)" }),
       );
     }
 
