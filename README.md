@@ -1,6 +1,6 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
-  <img alt="graft" src="assets/banner-light.png" width="1012">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png?v=2">
+  <img alt="graft" src="assets/banner-light.png?v=2" width="1012">
 </picture>
 
 <br>
