@@ -3,6 +3,11 @@ layout: default
 title: dsh-graft-plugin
 ---
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png?v=2">
+  <img alt="graft" src="assets/banner-light.png?v=2" style="width:100%;max-width:1012px">
+</picture>
+
 # dsh-graft-plugin
 
 A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) plugin that puts [graft](https://github.com/trailhq/Graft) — a prebuilt graph of every symbol, its `file:line` span, and who calls what — in front of both you and the model.
