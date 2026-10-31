@@ -23,6 +23,9 @@ graft/
 .testtmp/
 node-compile-cache/
 
+# Local visual-QA scratch (headless harness, screenshots, packed tarballs)
+.play/
+
 # Local publishing notes — kept out of the public repo
 PUBLISHING.md
 MARKETPLACE.md
