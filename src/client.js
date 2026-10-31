@@ -185,6 +185,13 @@ window.__ModuleLoader__.load({
         "cursor:pointer;--accent:var(--dsh-graft-accent,#e5484d)}",
         ".gs-viz:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.14))}",
         ".gs-viz:disabled{opacity:.5;cursor:progress}",
+        // No graph (or a status not yet resolved): the mark greys out with the
+        // chip. The red accent is the "this repo IS grafted" signal — wearing
+        // it on a workspace with no index advertised a graph the tools would
+        // then refuse with "No graft index". currentColor folds the leaf and
+        // the node into the mark's own label colour; the opacity matches
+        // .gs-chip.gs-muted so the two read as one disabled pair.
+        ".gs-viz.gs-muted{--accent:currentColor;opacity:.6}",
         ".gs-viz.gs-err{color:var(--dsw-alias-state-error-primary,#e5484d)}",
         ".gs-tabwrap{display:flex;flex-direction:column;height:100%;min-height:0}",
         ".gs-tabbar{display:flex;align-items:center;gap:6px;padding:0 6px 0 10px;min-height:32px;",
@@ -1172,7 +1179,7 @@ window.__ModuleLoader__.load({
             "button",
             {
               type: "button",
-              className: "gs-viz" + (failed ? " gs-err" : ""),
+              className: "gs-viz" + (failed ? " gs-err" : "") + (ok ? "" : " gs-muted"),
               onClick: openViz,
               disabled: busy,
               title: busy
