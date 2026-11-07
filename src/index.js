@@ -561,8 +561,12 @@ export function apply(ctx, config = {}) {
    * Build button. Hoisted out of the `autoBuild` block on purpose: the button
    * must rebuild even in a profile that turned the automatic hooks off.
    */
+  // Resolved once: the rebuild needs graft's cli.js AND the interpreter that
+  // may run it, and re-resolving per call could pick a different node mid-session.
+  const graftCommand = resolveGraftCommand()
   const autoSync = createAutoSync({
-    cliPath: resolveGraftCommand().prefix[0],
+    cliPath: graftCommand.prefix[0],
+    nodePath: graftCommand.command,
     minIntervalMs: config.autoBuildMinIntervalMs,
     writeTools: config.autoBuildTools,
   })

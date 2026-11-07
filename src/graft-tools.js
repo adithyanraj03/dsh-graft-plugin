@@ -73,21 +73,68 @@ const MAX_CHARS = 60_000
  *
  * The bare-name fallback keeps a differently-installed graft working; it is
  * only reached when the entry point cannot be found.
+ *
+ * WHY THE INTERPRETER IS NOT ALWAYS `process.execPath`
+ *
+ * execPath is Node only when the host is Node. The dsh DESKTOP app is Electron
+ * (`DeepSeek Harness.exe`) running with ELECTRON_RUN_AS_NODE=1, so execPath is
+ * that app binary: the script still starts, and the breakage happens one layer
+ * in, inside graft's own argument parsing. The child keeps
+ * `process.versions.electron`, and commander 15 picks its `electron` argv
+ * convention from exactly that (`if (process.versions?.electron) from =
+ * 'electron'`). That branch then keys on `process.defaultApp`, which is
+ * undefined when the JS arrived as a script path rather than an app directory,
+ * and slices argv from 1 instead of 2 — so the cli.js path lands where the
+ * subcommand should be:
+ *
+ *     error: unknown command '<...>\@nanonets\graft\dist\cli.js'
+ *
+ * which is what the Build button and all five query tools used to return in the
+ * desktop app. A real node avoids the Electron binary altogether.
  */
-export function resolveGraftCommand(env = process.env, exists = existsSync, execPath = process.execPath) {
-  const path = String(env.PATH ?? env.Path ?? '')
-  for (const dir of path.split(delimiter)) {
-    if (dir === '') continue
+const NODE_EXE = process.platform === 'win32' ? 'node.exe' : 'node'
+
+/**
+ * Which binary to run graft's cli.js with.
+ *
+ * The npm shim's own rule is the first choice — `%dp0%\node.exe`, the node that
+ * was installed beside the shims — so this agrees with what typing `graft` in a
+ * terminal would do. Only an Electron host needs the PATH search after it,
+ * because `graft` and its node need not share a prefix. A Node host keeps using
+ * its own execPath, unchanged from before.
+ */
+function interpreterFor(installDir, dirs, exists, execPath, electron) {
+  const beside = join(installDir, NODE_EXE)
+  if (exists(beside)) return beside
+  if (!electron) return execPath
+  for (const dir of dirs) {
+    const candidate = join(dir, NODE_EXE)
+    if (exists(candidate)) return candidate
+  }
+  // Nothing better to hand: execPath at least runs the script, and graft's own
+  // stderr says what happened — the same answer as before this existed.
+  return execPath
+}
+
+export function resolveGraftCommand(
+  env = process.env,
+  exists = existsSync,
+  execPath = process.execPath,
+  electron = process.versions?.electron !== undefined,
+) {
+  const dirs = String(env.PATH ?? env.Path ?? '').split(delimiter).filter((dir) => dir !== '')
+  for (const dir of dirs) {
     const cli = join(dir, 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
-    if (exists(cli)) return { command: execPath, prefix: [cli], shell: false }
+    if (exists(cli)) return { command: interpreterFor(dir, dirs, exists, execPath, electron), prefix: [cli], shell: false }
   }
   // A bun global install puts only the shim on PATH; the package lives under
   // $BUN_INSTALL/install/global. Missing it left prefix empty, which auto-sync
   // used to turn into a fatal dirname(undefined).
   const bunRoot = env.BUN_INSTALL ?? join(env.HOME ?? env.USERPROFILE ?? '.', '.bun')
   if (typeof bunRoot === 'string' && bunRoot !== '') {
-    const bunCli = join(bunRoot, 'install', 'global', 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
-    if (exists(bunCli)) return { command: execPath, prefix: [bunCli], shell: false }
+    const bunInstall = join(bunRoot, 'install', 'global')
+    const bunCli = join(bunInstall, 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
+    if (exists(bunCli)) return { command: interpreterFor(bunInstall, dirs, exists, execPath, electron), prefix: [bunCli], shell: false }
   }
   return { command: 'graft', prefix: [], shell: process.platform === 'win32' }
 }

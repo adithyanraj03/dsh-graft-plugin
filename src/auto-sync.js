@@ -92,6 +92,7 @@ async function loadGraftState(cliPath) {
 
 /**
  * @param deps.cliPath - graft's `dist/cli.js`, from which its `claude/` dir is found.
+ * @param deps.nodePath - the interpreter to run it with; defaults to execPath.
  * @param deps.minIntervalMs - floor between rebuilds of the same repo.
  */
 export function createAutoSync(deps = {}) {
@@ -108,6 +109,20 @@ export function createAutoSync(deps = {}) {
    */
   const minIntervalMs = Number.isInteger(deps.minIntervalMs) ? deps.minIntervalMs : 5_000
   const spawnFn = deps.spawn ?? spawn
+  /**
+   * The interpreter for sync-run.js — the one the plugin resolved for graft's
+   * CLI, which is NOT necessarily `process.execPath`.
+   *
+   * sync-run rebuilds through `execFileSync(process.execPath, [cli, 'build',
+   * '.'])`, i.e. it re-spawns whatever binary started it. So handing it the
+   * plugin's node is enough to fix the grandchild as well, and spawning this
+   * host's execPath is not: in the dsh DESKTOP app that is
+   * `DeepSeek Harness.exe`, and Electron's `process.versions.electron` makes
+   * graft's commander read the cli.js path as the subcommand. That failure is
+   * invisible from here — sync-run's build call discards stdio, so the rebuild
+   * simply reported success over an unchanged graph.
+   */
+  const nodePath = deps.nodePath ?? process.execPath
   const now = deps.now ?? (() => Date.now())
 
   /**
@@ -271,7 +286,7 @@ export function createAutoSync(deps = {}) {
          * and `sync-run` clears `syncing` and releases the lock on its own way
          * out either way.
          */
-        const child = spawnFn(process.execPath, [g.syncRun, root], {
+        const child = spawnFn(nodePath, [g.syncRun, root], {
           stdio: 'ignore',
           windowsHide: true,
         })

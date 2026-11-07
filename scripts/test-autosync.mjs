@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { resolveGraftCommand, savedTokensIn } from '../src/graft-tools.js'
 import { createAutoSync } from '../src/auto-sync.js'
 import { totalSaved } from '../src/index.js'
@@ -177,6 +177,41 @@ const viaUserprofile = resolveGraftCommand(
 check('or via USERPROFILE/.bun on Windows', viaUserprofile.prefix[0] === join('C:\\Users\\x', '.bun', 'install', 'global', 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js'), viaUserprofile.prefix[0])
 const bare = resolveGraftCommand({ PATH: '', HOME: '/home/x' }, fakeExists(new Set()))
 check('nothing installed falls back to the bare command', bare.command === 'graft' && bare.prefix.length === 0)
+
+// The dsh DESKTOP app runs on Electron, where process.execPath is
+// "DeepSeek Harness.exe". Spawning that still RUNS the script — but the child
+// keeps process.versions.electron, and commander 15 then reads argv from 1
+// instead of 2, so graft's own cli.js path is taken as the subcommand:
+//   error: unknown command '<...>\graft\dist\cli.js'
+// which is what Build and every query tool returned there. The npm shim's own
+// rule — the node beside the shims — is the interpreter to use instead.
+const NODE_EXE = process.platform === 'win32' ? 'node.exe' : 'node'
+const npmDir = join('C:\\Users\\x', 'AppData', 'Local', 'hermes', 'node')
+const npmCli = join(npmDir, 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
+const appExe = join('C:\\Application', 'DeepSeek Harness', 'DeepSeek Harness.exe')
+const onElectron = resolveGraftCommand({ PATH: npmDir }, fakeExists(new Set([npmCli, join(npmDir, NODE_EXE)])), appExe, true)
+check('an Electron host runs graft with the node beside it, not the app binary', onElectron.command === join(npmDir, NODE_EXE) && onElectron.shell === false, onElectron.command)
+// A graft whose prefix has no node of its own (bun, a hand-made layout): the
+// PATH search is the fallback, so the Electron binary is still not used.
+const elsewhere = join('C:\\Program Files', 'nodejs')
+const viaPath = resolveGraftCommand({ PATH: [npmDir, elsewhere].join(delimiter) }, fakeExists(new Set([npmCli, join(elsewhere, NODE_EXE)])), appExe, true)
+check('a node elsewhere on PATH is preferred over the app binary', viaPath.command === join(elsewhere, NODE_EXE), viaPath.command)
+const noNode = resolveGraftCommand({ PATH: npmDir }, fakeExists(new Set([npmCli])), appExe, true)
+check('with no node anywhere it still returns the cli, not nothing', noNode.prefix[0] === npmCli && noNode.command === appExe, noNode.command)
+// A plain Node host is untouched by all of this: its execPath IS the runtime.
+const onNode = resolveGraftCommand({ PATH: npmDir }, fakeExists(new Set([npmCli])), join('C:\\node', 'node.exe'), false)
+check('a Node host keeps using its own process.execPath', onNode.command === join('C:\\node', 'node.exe'), onNode.command)
+
+// And the rebuild must be handed that interpreter, because sync-run rebuilds
+// through execFileSync(process.execPath, ...) — the grandchild inherits whatever
+// binary started sync-run.
+spawned = []
+state.stats = { dirty: true }
+state.lock = true
+now += 60_000
+const withNode = make({ nodePath: 'C:/fake/node.exe' })
+check('the rebuild spawns sync-run', (await withNode.rebuild('C:/interp')) === 'started')
+check('with the resolved interpreter, not process.execPath', spawned.at(-1)?.[0] === 'C:/fake/node.exe', String(spawned.at(-1)?.[0]))
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`)
 process.exit(failures === 0 ? 0 : 1)
