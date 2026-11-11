@@ -49,6 +49,7 @@ import { dirname, join, resolve } from 'node:path'
 import { createAutoSync } from './auto-sync.js'
 import { createGraftCommand } from './command.js'
 import { graftTools, resolveGraftCommand, runGraft } from './graft-tools.js'
+import { ensureGraft } from './ensure-graft.js'
 
 export const name = 'graft-status'
 
@@ -567,9 +568,27 @@ export function apply(ctx, config = {}) {
   const autoSync = createAutoSync({
     cliPath: graftCommand.prefix[0],
     nodePath: graftCommand.command,
+    // graft may not exist yet at boot (fresh machine): re-resolve per use so
+    // the install ensureGraft performs mid-session is picked up without a
+    // restart, for both the state helpers and the sync-run interpreter.
+    resolveCli: () => resolveGraftCommand().prefix[0],
+    resolveCommand: () => resolveGraftCommand(),
     minIntervalMs: config.autoBuildMinIntervalMs,
     writeTools: config.autoBuildTools,
   })
+
+  /**
+   * The auto-install, shared by the chip, the Build button, viz and the tools.
+   * `autoInstall: false` on the row (or DSH_GRAFT_NO_AUTOINSTALL=1) restores the
+   * old report-the-command behaviour; `graftVersion` pins what gets installed.
+   */
+  const ensureDeps = {
+    autoInstall: config.autoInstall !== false,
+    spec: typeof config.graftVersion === 'string' && config.graftVersion !== '' ? config.graftVersion : undefined,
+    // ctx.get, not ctx.logger: property access on an undeclared service throws
+    // in cordis, and this plugin deliberately declares no injects.
+    log: (message) => { try { ctx.get?.('logger')?.info?.(`[graft] ${message}`) } catch { /* logging must never break the chip */ } },
+  }
 
   const vizDeps = {
     alive: vizAlive,
@@ -600,6 +619,13 @@ export function apply(ctx, config = {}) {
   liveOps = {
     status: async (sessionId) => {
       const from = cwdFor(sessionId)
+      // No graft at all is a different answer from "no index in this repo":
+      // kick the install off once (single-flight inside ensureGraft) and let
+      // the next poll read the real status.
+      if (resolveGraftCommand().prefix[0] === undefined) {
+        void ensureGraft(ensureDeps)
+        return { ok: false, reason: 'graft is not installed yet — installing it in the background. Press Build again in a moment.', from }
+      }
       let root
       try {
         root = await findGraftRoot(from, io.exists, io.readText)
@@ -627,6 +653,8 @@ export function apply(ctx, config = {}) {
 
     viz: async (sessionId) => {
       const from = cwdFor(sessionId)
+      const ensured = await ensureGraft(ensureDeps)
+      if (!ensured.ok) return { ok: false, reason: ensured.reason, from }
       const root = await findGraftRoot(from, io.exists, io.readText)
       if (root === undefined) return { ok: false, reason: 'no graft index above ' + from, from }
 
@@ -664,6 +692,9 @@ export function apply(ctx, config = {}) {
 
     build: async (sessionId) => {
       const from = cwdFor(sessionId)
+      // A pressed Build is an explicit request: skip the failure cooldown.
+      const ensured = await ensureGraft({ ...ensureDeps, force: true })
+      if (!ensured.ok) return { ok: false, reason: ensured.reason, from }
       let root
       try {
         root = await findGraftRoot(from, io.exists, io.readText)
@@ -709,6 +740,7 @@ export function apply(ctx, config = {}) {
   if (config.tools !== false) {
     const toolDeps = {
       fallbackCwd: fallbackFrom,
+      ensure: ensureDeps,
       findRoot: (start) => findGraftRoot(start, io.exists, io.readText),
       noteUse: (root) => pulses.note(root),
       recordSavings: (root, saved) => {

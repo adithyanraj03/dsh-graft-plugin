@@ -42,13 +42,20 @@ cd ~/.dsh/profiles/web && node -e "const p=require('./package.json');
               p.dsh.profile.bundles.includes('dsh-graft-plugin'))"
 ```
 
-这里的每个工具都要调用 `graft` CLI，所以 PATH 上必须有 `@nanonets/graft`：
+这里的每个工具都要调用 `graft` CLI，所以需要 `@nanonets/graft`。**从 0.3.5 起插件会替你装好**：chip、Build 按钮、`graft viz` 和各个工具在第一次需要时触发同一次安装（同一时刻只跑一个）：
+
+1. `npm install -g @nanonets/graft@latest`，用真正的 node（绝不是 Electron 应用二进制）和 npm 自己的 `npm-cli.js` 执行，不经过 shell。
+2. 若全局前缀拒绝（提权、只读前缀）或装到了 PATH 之外，则重试到插件自有的前缀：`<DSH_HOME>/graft-cli`（默认 `~/.dsh/graft-cli`）。不需要提权，插件升级后仍在，卸载时删一个目录即可。你自己装的 graft 永远优先于它。
+
+安装期间 chip 会说明；装完后再按一次 Build。失败的尝试不会在每次轮询时重试——Build 按钮会强制重试。
+
+`postinstall` 对愿意运行生命周期脚本的包管理器执行同一个安装器。pnpm 10+ 默认拦截这些脚本（tarball 安装即使批准也照样忽略），这正是安装逻辑同时放在 host 半边的原因：它不受包管理器策略影响。想手动装也可以：
 
 ```sh
 npm install -g @nanonets/graft
 ```
 
-`postinstall` 会在**你的包管理器愿意运行生命周期脚本时**替你装好——pnpm 10+ 默认拦截它们，所以在 pnpm 下请把上面这条命令当作必需步骤，而不是后备。若全局 npm 前缀需要提权，postinstall 会说明并打印那条需要手动执行的命令。
+在插件行上设 `autoInstall: false`、或按机器设 `DSH_GRAFT_NO_AUTOINSTALL=1` 可关闭自动安装；用 `graftVersion` 固定安装版本（默认 `latest`）。
 
 然后给仓库建一次索引：
 
@@ -76,7 +83,7 @@ graft build
 
 ![Installed 确认页与安装详情](assets/dsh-desktop-app-install-2.png)
 
-> 对话框也提示：已安装的插件**目前不会自动更新**——升级请先卸载再重装。graft CLI 的要求（`npm install -g @nanonets/graft`）不变。
+> 对话框也提示：已安装的插件**目前不会自动更新**——升级请先卸载再重装。graft CLI 从 0.3.5 起在首次使用时自动安装。
 
 ### 侧边栏标签页
 
@@ -165,6 +172,8 @@ dsh plugin --profile web add dsh-better-sidebar
     command: false           # 去掉 /graft
     promptSection: false     # 不再告诉模型使用 graft
     autoBuild: false         # 不再在编辑后重建（卡片上的 Build 按钮仍然可用）
+    autoInstall: false       # 不自动安装 graft，改为提示 npm 命令
+    graftVersion: '0.16.0'   # 固定自动安装的版本（默认 'latest'）
 ```
 
 ## 系统要求
@@ -178,7 +187,7 @@ dsh plugin --profile web add dsh-better-sidebar
 | `0.2.0-rc.2` | 需要插件 `0.2.1`+——更早的发行版无法激活（见故障排查） |
 
 - Node 22+
-- PATH 上的 `graft` CLI（`npm install -g @nanonets/graft`）。bun 的全局安装（`bun add -g @nanonets/graft`）也能被识别，经由 `$BUN_INSTALL` 或 `~/.bun`。
+- `graft` CLI——首次使用时自动安装（见安装），或手动 `npm install -g @nanonets/graft`。bun 的全局安装（`bun add -g @nanonets/graft`）也能被识别，经由 `$BUN_INSTALL` 或 `~/.bun`；插件自有的 `<DSH_HOME>/graft-cli` 前缀同样被识别。
 
 客户端 bundle 只依赖 `react`——这就是它能在 dsh `0.1.5-rc.2` 移除一批客户端包、弄坏了好几个相邻插件的情况下存活的原因。
 
@@ -211,7 +220,7 @@ registering "dsh-graft-plugin" via __ModuleLoader__.load
 
 **在 dsh 0.2 上插件加载失败，报 `strict codec has no create() factory`，dsh 还提议移除它。** dsh 0.2 要求每个 strict remote codec 都带一个 `create()` schema 工厂；`0.2.1` 之前的插件发行版只有 0.1 的 `schema` 键。升级到 `0.2.1` 或更新版本——它两种都带，0.1 和 0.2 上都能加载。
 
-**`/graft` 说 graft CLI 不在 PATH 上。** postinstall 被拦截或被跳过了（见安装）：`npm install -g @nanonets/graft`。
+**`/graft` 说 graft CLI 不在 PATH 上。** 0.3.5+ 会在首次使用时自动安装；若失败（离线机器、前缀被拒），消息里带 npm 自己的输出和手动命令：`npm install -g @nanonets/graft`。旧版本则是 postinstall 被拦截或被跳过（见安装）。
 
 ## 许可证
 

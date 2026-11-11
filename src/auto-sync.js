@@ -93,6 +93,10 @@ async function loadGraftState(cliPath) {
 /**
  * @param deps.cliPath - graft's `dist/cli.js`, from which its `claude/` dir is found.
  * @param deps.nodePath - the interpreter to run it with; defaults to execPath.
+ * @param deps.resolveCli - optional live re-resolve of graft's cli.js, so a
+ *   graft installed mid-session is picked up without a restart.
+ * @param deps.resolveCommand - optional live `{ command }` for the sync-run
+ *   spawn; wins over nodePath when present.
  * @param deps.minIntervalMs - floor between rebuilds of the same repo.
  */
 export function createAutoSync(deps = {}) {
@@ -150,9 +154,15 @@ export function createAutoSync(deps = {}) {
 
   let loaded
   const graft = async () => {
-    if (loaded === undefined) {
+    // A null result is NOT cached: graft can be installed mid-session by
+    // ensureGraft (the first Build on a fresh machine), and a permanently
+    // cached "unavailable" would keep auto-sync dead for the rest of that
+    // session. Re-resolving is cheap — loadGraftState returns before any
+    // import when there is no cli to load.
+    if (loaded === undefined || loaded === null) {
+      const cliPath = typeof deps.resolveCli === 'function' ? deps.resolveCli() : deps.cliPath
       try {
-        loaded = deps.graft !== undefined ? await deps.graft : await loadGraftState(deps.cliPath)
+        loaded = deps.graft !== undefined ? await deps.graft : await loadGraftState(cliPath)
       } catch {
         loaded = null // any loader failure counts as "graft unavailable"
       }
@@ -286,7 +296,8 @@ export function createAutoSync(deps = {}) {
          * and `sync-run` clears `syncing` and releases the lock on its own way
          * out either way.
          */
-        const child = spawnFn(nodePath, [g.syncRun, root], {
+        const how = typeof deps.resolveCommand === 'function' ? deps.resolveCommand() : { command: nodePath }
+        const child = spawnFn(how.command, [g.syncRun, root], {
           stdio: 'ignore',
           windowsHide: true,
         })

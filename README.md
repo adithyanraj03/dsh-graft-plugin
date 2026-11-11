@@ -42,13 +42,20 @@ cd ~/.dsh/profiles/web && node -e "const p=require('./package.json');
               p.dsh.profile.bundles.includes('dsh-graft-plugin'))"
 ```
 
-Every tool here shells out to the `graft` CLI, so it needs `@nanonets/graft` on PATH:
+Every tool here shells out to the `graft` CLI, so it needs `@nanonets/graft`. **From 0.3.5 the plugin installs it for you** the first time it is needed — the chip, the Build button, `graft viz` and the tools all trigger the same one-at-a-time install:
+
+1. `npm install -g @nanonets/graft@latest`, run with a real node (never the Electron app binary) and npm's own `npm-cli.js`, no shell.
+2. If the global prefix refuses (elevation, read-only prefix) or the install lands off PATH, it retries into a prefix the plugin owns: `<DSH_HOME>/graft-cli` (default `~/.dsh/graft-cli`). No elevation needed, survives plugin upgrades, one directory to delete for a clean uninstall. A graft you installed yourself always wins over it.
+
+While that runs the chip says so; press Build again once it finishes. A failed attempt is not retried on every poll — the Build button forces a retry.
+
+The `postinstall` runs the same installer for package managers that execute lifecycle scripts. pnpm 10+ blocks those by default (and ignores them for tarball installs even when approved), which is exactly why the install also lives in the host half: it runs regardless of package-manager policy. To do it by hand instead:
 
 ```sh
 npm install -g @nanonets/graft
 ```
 
-A `postinstall` does this for you **when your package manager runs lifecycle scripts** — under pnpm 10+ they are blocked by default, so treat the command above as the required step there, not a fallback. If your global npm prefix needs elevation, the postinstall says so and prints the one command to run by hand.
+Opt out with `autoInstall: false` on the plugin's row, or `DSH_GRAFT_NO_AUTOINSTALL=1` per machine; pin what gets installed with `graftVersion` (default `latest`).
 
 Then index a repo once:
 
@@ -76,7 +83,7 @@ The dialog switches to the **Installed** confirmation, and the plugin appears un
 
 ![The Installed confirmation with the install details](assets/dsh-desktop-app-install-2.png)
 
-> The dialog notes that installed plugins **do not update automatically yet** — to upgrade, uninstall and install again. The graft CLI requirement (`npm install -g @nanonets/graft`) is the same.
+> The dialog notes that installed plugins **do not update automatically yet** — to upgrade, uninstall and install again. The graft CLI is installed automatically on first use from 0.3.5.
 
 ### The sidebar tab
 
@@ -165,6 +172,8 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
     command: false           # drop /graft
     promptSection: false     # stop telling the model to use graft
     autoBuild: false         # stop rebuilding after edits (the card's Build button still works)
+    autoInstall: false       # never install graft automatically; report the npm command instead
+    graftVersion: '0.16.0'   # pin what the auto-install requests (default 'latest')
 ```
 
 ## Requirements
@@ -178,7 +187,7 @@ All optional, all on the plugin's row in your profile's `cordis.patch.yml`:
 | `0.2.0-rc.2` | needs plugin `0.2.1`+ — earlier releases fail to activate (see Troubleshooting) |
 
 - Node 22+
-- the `graft` CLI on PATH (`npm install -g @nanonets/graft`). A bun global install (`bun add -g @nanonets/graft`) is detected too, via `$BUN_INSTALL` or `~/.bun`.
+- the `graft` CLI — installed automatically on first use (see Install), or by hand with `npm install -g @nanonets/graft`. A bun global install (`bun add -g @nanonets/graft`) is detected too, via `$BUN_INSTALL` or `~/.bun`, as is the plugin's own `<DSH_HOME>/graft-cli` prefix.
 
 The client bundle requires only `react`, which is why it survives the dsh `0.1.5-rc.2` client-package removals that broke several neighbouring plugins.
 
@@ -211,7 +220,7 @@ registering "dsh-graft-plugin" via __ModuleLoader__.load
 
 **On dsh 0.2 the plugin fails to load with `strict codec has no create() factory`, and dsh offers to remove it.** dsh 0.2 requires every strict remote codec to carry a `create()` schema factory; plugin releases before `0.2.1` only had the 0.1 `schema` key. Update to `0.2.1` or later, which carries both and so loads on 0.1 and 0.2.
 
-**`/graft` says the graft CLI is not on PATH.** The postinstall was blocked or skipped (see Install): `npm install -g @nanonets/graft`.
+**`/graft` says the graft CLI is not on PATH.** On 0.3.5+ the plugin installs it on first use; if that failed (offline machine, refused prefix) the message carries npm's own output and the hand command: `npm install -g @nanonets/graft`. On older versions the postinstall was blocked or skipped (see Install).
 
 ## Licence
 

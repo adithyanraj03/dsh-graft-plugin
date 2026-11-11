@@ -7,7 +7,16 @@
  * and the chip reads an index `graft build` writes — so a correct install of
  * the plugin with no `graft` on PATH is a plugin that can do nothing, and says
  * so only at the first tool call. Installing it here turns that into one
- * install step instead of two.
+ * install step instead of two, for the package managers that run this file.
+ *
+ * WHY IT IS NOT THE ONLY INSTALL PATH
+ *
+ * pnpm — which is what dsh profiles and the marketplace use — refuses
+ * lifecycle scripts of dependencies unless the profile approves them, and
+ * ignores them for `file:` tarball deps even WITH the approval. Measured on
+ * pnpm 11.28.5: ERR_PNPM_IGNORED_BUILDS, plugin installed, graft absent. So the
+ * host half runs the same ensureGraft() on first need; this file is the
+ * install-time convenience for plain npm, not the guarantee.
  *
  * WHY IT NEVER FAILS THE INSTALL
  *
@@ -15,54 +24,20 @@
  * permission on the prefix, an offline machine, a locked-down CI image, or
  * `--ignore-scripts` (which skips this file entirely and is a perfectly
  * reasonable thing for a careful user to do). None of those mean the PLUGIN
- * failed to install, so none of them exit non-zero. They print the one command
- * to run by hand and get out of the way.
+ * failed to install, so none of them exit non-zero. ensureGraft already falls
+ * back to a user-writable prefix; whatever is left prints the one command to
+ * run by hand and gets out of the way.
  *
  * Set DSH_GRAFT_SKIP_POSTINSTALL=1 to skip it outright.
  */
 
-import { spawn } from 'node:child_process'
-import { delimiter, join } from 'node:path'
-import { existsSync } from 'node:fs'
+import { ensureGraft, GRAFT_PACKAGE } from '../src/ensure-graft.js'
 
-/** The package behind the `graft` command. The GitHub home is trailhq/Graft. */
-const PACKAGE = '@nanonets/graft'
-
-const BOLD = '[1m'
-const DIM = '[2m'
-const OFF = '[0m'
+const BOLD = '\x1b[1m'
+const DIM = '\x1b[2m'
+const OFF = '\x1b[0m'
 
 const say = (line = '') => process.stdout.write(`${line}\n`)
-
-/** Is `graft` already reachable? Checked before installing, so a re-install is a no-op. */
-function graftOnPath(env = process.env, exists = existsSync) {
-  const path = String(env.PATH ?? env.Path ?? '')
-  for (const dir of path.split(delimiter)) {
-    if (dir === '') continue
-    for (const name of ['graft.cmd', 'graft.exe', 'graft']) {
-      if (exists(join(dir, name))) return true
-    }
-  }
-  return false
-}
-
-/** Run a command to completion. Resolves with the exit code; never rejects. */
-function run(command, args) {
-  return new Promise((resolve) => {
-    let child
-    try {
-      // `shell: true` on Windows, because npm is a `.cmd` shim that cannot be
-      // exec'd directly. No argument here contains a space, so the unquoted
-      // argv join that makes `shell: true` dangerous cannot bite.
-      child = spawn(command, args, { stdio: 'inherit', shell: process.platform === 'win32' })
-    } catch {
-      resolve(null)
-      return
-    }
-    child.on('error', () => resolve(null))
-    child.on('close', (code) => resolve(code))
-  })
-}
 
 async function main() {
   if (process.env.DSH_GRAFT_SKIP_POSTINSTALL === '1') return
@@ -70,23 +45,23 @@ async function main() {
   say()
   say(`${BOLD}dsh-graft-plugin${OFF}`)
 
-  if (graftOnPath()) {
-    say(`  ${DIM}graft is already on PATH - nothing to install.${OFF}`)
+  const result = await ensureGraft({
+    spec: process.env.DSH_GRAFT_VERSION || undefined,
+    log: (message) => say(`  ${message}`),
+  })
+
+  if (result.ok && result.already) {
+    say(`  ${DIM}graft is already installed - nothing to do.${OFF}`)
+  } else if (result.ok) {
+    say(`  ${BOLD}done.${OFF} graft is installed (${result.installed}).`)
   } else {
-    say(`  installing the graft CLI (${PACKAGE}) globally...`)
-    const code = await run('npm', ['install', '-g', PACKAGE])
-    if (code === 0) {
-      say(`  ${BOLD}done.${OFF} graft is on PATH.`)
-    } else {
-      say()
-      say(`  ${BOLD}graft was not installed${OFF} (npm exited ${code === null ? 'without running' : code}).`)
-      say('  This plugin needs it. Install it by hand:')
-      say()
-      say(`      npm install -g ${PACKAGE}`)
-      say()
-      say('  On a machine where the global prefix needs elevation, run that in an')
-      say('  administrator shell, or point npm at a writable prefix first.')
-    }
+    say()
+    say(`  ${BOLD}graft was not installed.${OFF} This plugin needs it.`)
+    for (const line of String(result.reason ?? '').split('\n')) say(`  ${line}`)
+    say()
+    say('  On a machine where the global prefix needs elevation, run that in an')
+    say('  administrator shell, or point npm at a writable prefix first.')
+    say(`  (dsh itself will retry automatically on first use: ${GRAFT_PACKAGE}.)`)
   }
 
   say()

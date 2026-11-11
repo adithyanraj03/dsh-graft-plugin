@@ -40,8 +40,12 @@
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { cachedGraftCommand, ensureGraft } from './ensure-graft.js'
+
+// Resolution and installation live in ensure-graft.js, which postinstall can
+// also import (it runs under plain npm node, where dsh-tools does not exist).
+// Re-exported here because every existing caller imports it from this module.
+export { resolveGraftCommand } from './ensure-graft.js'
 
 /**
  * Ceiling for one graft call.
@@ -58,90 +62,6 @@ const TIMEOUT_MS = 60_000
 const MAX_CHARS = 60_000
 
 /**
- * How to invoke graft without a shell.
- *
- * `graft` on Windows is a `.cmd` shim, so a naive spawn cannot exec it and the
- * obvious fix — `shell: true` — is a trap: Node joins argv into one command
- * line WITHOUT quoting, so the first argument containing a space is silently
- * split. That broke every call here at once, because both the queries
- * (`"punch animation"`) and the repo path (`B:\...\Street Yeet`) contain
- * spaces.
- *
- * The shim's own body is `node <dir>/node_modules/@nanonets/graft/dist/cli.js`,
- * so finding that file on PATH and running it with the current Node needs no
- * shell at all, and argv is passed through exactly as written.
- *
- * The bare-name fallback keeps a differently-installed graft working; it is
- * only reached when the entry point cannot be found.
- *
- * WHY THE INTERPRETER IS NOT ALWAYS `process.execPath`
- *
- * execPath is Node only when the host is Node. The dsh DESKTOP app is Electron
- * (`DeepSeek Harness.exe`) running with ELECTRON_RUN_AS_NODE=1, so execPath is
- * that app binary: the script still starts, and the breakage happens one layer
- * in, inside graft's own argument parsing. The child keeps
- * `process.versions.electron`, and commander 15 picks its `electron` argv
- * convention from exactly that (`if (process.versions?.electron) from =
- * 'electron'`). That branch then keys on `process.defaultApp`, which is
- * undefined when the JS arrived as a script path rather than an app directory,
- * and slices argv from 1 instead of 2 — so the cli.js path lands where the
- * subcommand should be:
- *
- *     error: unknown command '<...>\@nanonets\graft\dist\cli.js'
- *
- * which is what the Build button and all five query tools used to return in the
- * desktop app. A real node avoids the Electron binary altogether.
- */
-const NODE_EXE = process.platform === 'win32' ? 'node.exe' : 'node'
-
-/**
- * Which binary to run graft's cli.js with.
- *
- * The npm shim's own rule is the first choice — `%dp0%\node.exe`, the node that
- * was installed beside the shims — so this agrees with what typing `graft` in a
- * terminal would do. Only an Electron host needs the PATH search after it,
- * because `graft` and its node need not share a prefix. A Node host keeps using
- * its own execPath, unchanged from before.
- */
-function interpreterFor(installDir, dirs, exists, execPath, electron) {
-  const beside = join(installDir, NODE_EXE)
-  if (exists(beside)) return beside
-  if (!electron) return execPath
-  for (const dir of dirs) {
-    const candidate = join(dir, NODE_EXE)
-    if (exists(candidate)) return candidate
-  }
-  // Nothing better to hand: execPath at least runs the script, and graft's own
-  // stderr says what happened — the same answer as before this existed.
-  return execPath
-}
-
-export function resolveGraftCommand(
-  env = process.env,
-  exists = existsSync,
-  execPath = process.execPath,
-  electron = process.versions?.electron !== undefined,
-) {
-  const dirs = String(env.PATH ?? env.Path ?? '').split(delimiter).filter((dir) => dir !== '')
-  for (const dir of dirs) {
-    const cli = join(dir, 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
-    if (exists(cli)) return { command: interpreterFor(dir, dirs, exists, execPath, electron), prefix: [cli], shell: false }
-  }
-  // A bun global install puts only the shim on PATH; the package lives under
-  // $BUN_INSTALL/install/global. Missing it left prefix empty, which auto-sync
-  // used to turn into a fatal dirname(undefined).
-  const bunRoot = env.BUN_INSTALL ?? join(env.HOME ?? env.USERPROFILE ?? '.', '.bun')
-  if (typeof bunRoot === 'string' && bunRoot !== '') {
-    const bunInstall = join(bunRoot, 'install', 'global')
-    const bunCli = join(bunInstall, 'node_modules', '@nanonets', 'graft', 'dist', 'cli.js')
-    if (exists(bunCli)) return { command: interpreterFor(bunInstall, dirs, exists, execPath, electron), prefix: [bunCli], shell: false }
-  }
-  return { command: 'graft', prefix: [], shell: process.platform === 'win32' }
-}
-
-let cachedCommand
-
-/**
  * Run one graft subcommand and return its stdout.
  *
  * stderr is folded into the result rather than dropped: graft reports "no
@@ -151,7 +71,7 @@ let cachedCommand
  */
 export function runGraft(args, cwd, deps = {}) {
   const spawnFn = deps.spawn ?? spawn
-  const how = deps.command ?? (cachedCommand ??= resolveGraftCommand())
+  const how = deps.command ?? cachedGraftCommand()
   return new Promise((resolve) => {
     let child
     try {
@@ -236,6 +156,16 @@ function graftTool(spec, deps) {
     },
     execute: async (args, exec) => {
       const root = repoFor(exec, deps.fallbackCwd)
+      // A machine with no graft at all used to answer "no index" here, which
+      // reads as "your repo is not indexed" when the truth is "the CLI is not
+      // installed". Install it first (once, in the background elsewhere) so
+      // the next call works; while that runs, say what is happening. Only when
+      // the caller wired ensure deps: the offline test suites construct these
+      // tools without them and must never reach the network.
+      if (deps.ensure !== undefined && cachedGraftCommand().prefix[0] === undefined) {
+        const ensured = await ensureGraft(deps.ensure)
+        if (!ensured.ok) return { text: ensured.reason }
+      }
       const found = await deps.findRoot(root)
       if (found === undefined) {
         return {
